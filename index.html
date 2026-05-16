@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학민증권 시장 시즌 2 - 최종 배포 버전</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root { --fantasy-gold: #fbbf24; --fantasy-blue: #3b82f6; }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
+        .fantasy-card { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.5rem; }
+        .btn-action { transition: all 0.2s; border-radius: 0.75rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-action:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+        .btn-action:active { transform: scale(0.95); }
+        .nav-tab { cursor: pointer; transition: all 0.3s; padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid transparent; }
+        .nav-tab.active { background: rgba(59, 130, 246, 0.1); border-color: var(--fantasy-blue); color: var(--fantasy-blue); }
+        .modal-overlay { background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(8px); display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; }
+        .toast-msg { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); z-index: 1000; padding: 1rem 2rem; border-radius: 1rem; background: #1e293b; color: white; border: 1px solid #3b82f6; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none; font-weight: bold; }
+        .order-card { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 1rem; transition: all 0.2s; }
+        .order-card:hover { border-color: var(--fantasy-blue); background: rgba(30, 41, 59, 0.8); }
+        .phase-badge { padding: 4px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 900; text-transform: uppercase; }
+        .phase-0 { background: #f59e0b; color: #fff; }
+        .phase-1 { background: #3b82f6; color: #fff; }
+        .phase-2 { background: #6366f1; color: #fff; }
+        .admin-only { display: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .loading-screen { position: fixed; inset: 0; background: #020617; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body class="min-h-screen text-white">
+    <!-- 로딩 화면 -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="text-4xl mb-4 animate-bounce">🏛️</div>
+        <p class="text-blue-400 font-bold tracking-widest">데이터베이스 연결 중...</p>
+    </div>
+
+    <div id="game-toast" class="toast-msg">알림 메시지</div>
+
+    <!-- 네비게이션 -->
+    <nav class="sticky top-0 z-50 bg-slate-950/80 border-b border-slate-800 backdrop-blur-md px-6 py-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center text-white">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🏛️</span>
+                <div>
+                    <h1 class="text-xl font-black leading-none">학민증권 <span class="text-blue-500">시즌 2</span></h1>
+                    <p class="text-[9px] text-slate-500 font-bold tracking-widest uppercase mt-1">PRO PRODUCTION v2.0</p>
+                </div>
+            </div>
+            
+            <div class="hidden md:flex gap-4 font-bold text-slate-400">
+                <div id="tab-market" onclick="switchView('market')" class="nav-tab active">시황 중계</div>
+                <div id="tab-management" onclick="switchView('management')" class="nav-tab admin-only">모험가 관리</div>
+                <div onclick="openStudentLoginModal()" class="nav-tab text-emerald-400 border-emerald-900/30 bg-emerald-900/10">내 계좌 확인</div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <button id="admin-login-btn" onclick="toggleAdminAuth()" class="text-[10px] bg-slate-800 px-3 py-1.5 rounded-lg font-bold border border-slate-700">관리자</button>
+                <div class="text-right">
+                    <p id="display-date" class="text-lg font-black leading-none">제 1 일</p>
+                    <span id="display-phase" class="phase-badge phase-0 mt-1 inline-block text-white">오전 대기</span>
+                </div>
+                <button id="step-btn" onclick="handleTimeStep()" class="admin-only btn-action bg-blue-600 px-6 py-2 text-xs text-white">진행</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-8">
+        <!-- 화면 1: 시장 상황 -->
+        <div id="view-market" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-4 space-y-6">
+                <div class="fantasy-card p-6">
+                    <h2 class="text-sm font-black text-blue-400 uppercase tracking-widest mb-4">📈 실시간 시세 (±30% 제한)</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="text-slate-500 text-[10px] border-b border-slate-800">
+                                    <th class="pb-3 text-white">종목</th>
+                                    <th class="pb-3 text-right text-white">현재가</th>
+                                    <th class="pb-3 text-right text-white">변동</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stock-list-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="fantasy-card p-6 border-amber-500/20">
+                    <h2 class="text-sm font-black text-amber-400 uppercase tracking-widest mb-4">🏆 실시간 랭킹</h2>
+                    <div id="leaderboard" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 space-y-6">
+                <div class="fantasy-card p-6 min-h-[400px]">
+                    <h2 class="text-sm font-black text-white uppercase tracking-widest mb-4">📊 주가 그래프</h2>
+                    <div class="h-80"><canvas id="mainChart"></canvas></div>
+                </div>
+                <div class="fantasy-card p-6 border-blue-500/30">
+                    <h2 class="text-sm font-black text-blue-400 uppercase tracking-widest mb-4">📜 시장 크로니클</h2>
+                    <div id="news-container" class="h-32 overflow-y-auto space-y-2 text-xs custom-scrollbar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 화면 2: 관리 -->
+        <div id="view-management" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-8 space-y-6">
+                <div class="fantasy-card p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-sm font-black text-emerald-400 uppercase tracking-widest">👤 모험가 관리 명부</h2>
+                        <div class="flex gap-2">
+                            <input type="text" id="new-student-name" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-xs text-white" placeholder="신규 이름">
+                            <button onclick="addStudent()" class="bg-emerald-600 px-3 py-1 rounded-lg text-xs font-bold text-white">등록</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-separate border-spacing-y-2">
+                            <thead>
+                                <tr class="text-slate-500 uppercase font-bold text-white">
+                                    <th class="px-2">이름</th>
+                                    <th class="px-2 text-right">현금</th>
+                                    <th class="px-2 text-right">총 자산</th>
+                                    <th class="px-2 text-center">작업</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-student-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="lg:col-span-4 space-y-6">
+                <div class="fantasy-card p-6 border-blue-500/30">
+                    <h2 class="text-sm font-black text-blue-400 uppercase tracking-widest mb-4 flex justify-between items-center text-white">
+                        <span>📥 주문 승인 대기열</span>
+                        <span id="order-count-badge" class="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full">0</span>
+                    </h2>
+                    <div id="order-queue" class="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 모달: 로그인 -->
+    <div id="modal-student-login" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
+        <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-80 text-center">
+            <h2 class="text-xl font-black text-white mb-6">내 계좌 접속</h2>
+            <div class="space-y-3 mb-6">
+                <input type="text" id="std-login-name" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white" placeholder="이름">
+                <input type="password" id="std-login-pw" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white" placeholder="비밀번호">
+            </div>
+            <button onclick="loginStudent()" class="w-full btn-action bg-emerald-600 py-3 text-white">로그인</button>
+        </div>
+    </div>
+
+    <!-- 모달: 학생 포털 -->
+    <div id="modal-student-portal" class="modal-overlay">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-4xl rounded-3xl overflow-hidden m-4 relative text-white">
+            <button onclick="closePortal()" class="absolute top-4 right-4 text-slate-500 hover:text-white text-2xl z-10">&times;</button>
+            <div class="p-8">
+                <div class="flex justify-between items-end border-b border-slate-800 pb-6 mb-6">
+                    <div>
+                        <h2 id="portal-user-name" class="text-3xl font-black">모험가</h2>
+                        <p class="text-xs text-blue-400 font-bold uppercase">Asset & Yield Dashboard</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase">Balance</p>
+                        <p id="portal-user-cash" class="text-3xl font-mono font-bold text-emerald-400">0.0 C</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800">
+                            <h3 class="text-xs font-black text-blue-400 uppercase mb-4 flex justify-between">
+                                <span>🛒 주식 거래 장바구니 (1일 1회 제출)</span>
+                                <span id="order-limit-status" class="text-[10px]"></span>
+                            </h3>
+                            <div class="flex gap-2 mb-4">
+                                <select id="portal-trade-type" class="bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white">
+                                    <option value="buy">매수</option>
+                                    <option value="sell">매도</option>
+                                </select>
+                                <select id="portal-stock-list" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white"></select>
+                                <input type="number" id="portal-trade-qty" class="w-20 bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white" placeholder="수량">
+                                <button onclick="addToBasket()" class="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">담기</button>
+                            </div>
+                            <div class="bg-slate-900/50 rounded-xl p-4 min-h-[150px] max-h-[150px] overflow-y-auto custom-scrollbar mb-4 text-white">
+                                <table class="w-full text-[11px] text-left">
+                                    <thead><tr class="text-slate-500 uppercase"><th class="pb-2">종류</th><th class="pb-2">종목</th><th class="pb-2 text-right">수량</th><th class="pb-2 text-center">삭제</th></tr></thead>
+                                    <tbody id="basket-body"></tbody>
+                                </table>
+                            </div>
+                            <button id="submit-basket-btn" onclick="submitBasket()" class="w-full btn-action bg-blue-600 py-3 text-xs disabled:opacity-50">최종 거래 신청서 제출</button>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <div class="bg-slate-950 p-6 rounded-2xl border border-emerald-900/30">
+                            <h3 class="text-xs font-black text-emerald-400 uppercase mb-4">💰 은행 업무 (상시 신청)</h3>
+                            <div class="space-y-2">
+                                <select id="portal-bank-type" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white"><option value="withdraw">골드 출금</option><option value="deposit">골드 입금</option></select>
+                                <input type="number" id="portal-bank-qty" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-xs text-white" placeholder="금액">
+                                <button onclick="submitBankOrder()" class="w-full bg-emerald-600 py-2 rounded-xl text-xs font-bold">은행 신청서 제출</button>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <h3 class="text-xs font-black text-amber-400 uppercase">📦 내 가방 (현재 수익률)</h3>
+                            <div id="portal-inventory" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 관리자 도구 모달 -->
+    <div id="modal-adjust-asset" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
+        <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-80 text-white">
+            <h2 class="text-lg font-black mb-2"><span id="adjust-name"></span> 자산 조정</h2>
+            <p class="text-xs text-slate-500 mb-6">현재 잔액: <span id="adjust-current-cash" class="text-emerald-400 font-mono">0.0</span>C</p>
+            <input type="number" id="adjust-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white mb-4" placeholder="조정할 금액 (+/-)">
+            <div class="flex gap-2"><button onclick="document.getElementById('modal-adjust-asset').style.display='none'" class="flex-1 bg-slate-800 py-3 rounded-xl text-xs font-bold">취소</button><button id="adjust-save-btn" class="flex-1 bg-emerald-600 py-3 rounded-xl text-xs font-bold">적용</button></div>
+        </div>
+    </div>
+
+    <div id="modal-admin-login" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
+        <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-80 text-center">
+            <h2 class="text-xl font-black text-white mb-6">관리자 인증</h2>
+            <input type="password" id="admin-pw-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-center text-white mb-4" placeholder="비밀번호">
+            <button onclick="checkAdminPW()" class="w-full btn-action bg-blue-600 py-3 text-white">확인</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK & Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, addDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase 구성 (제공해주신 키 적용) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCAujy_kXowHCFT2OuAx5TH2QmADIjl358",
+            authDomain: "hakminstock.firebaseapp.com",
+            projectId: "hakminstock",
+            storageBucket: "hakminstock.firebasestorage.app",
+            messagingSenderId: "473765131381",
+            appId: "1:473765131381:web:f13dace097e6f0c2ab343c"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = "hakminstock"; // Firestore 경로 구분을 위한 ID
+
+        // --- 앱 상태 ---
+        let marketState = { currentDay: 1, dayPhase: 0 };
+        let stocks = [];
+        let students = [];
+        let orders = [];
+        let basket = [];
+        let loggedInIdx = null;
+        let isAdmin = false;
+        let chart = null;
+
+        // --- 초기 기동 (Auth Before Query) ---
+        async function startApp() {
+            try {
+                await signInAnonymously(auth);
+            } catch (err) {
+                console.error("Auth Err:", err);
+                showToast("서버 연결 실패. 네트워크를 확인하세요.");
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("Logged in:", user.uid);
+                initRealtimeSync();
+            }
+        });
+
+        // --- 실시간 동기화 엔진 ---
+        function initRealtimeSync() {
+            // 1. 시장 상태
+            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), (snap) => {
+                if (snap.exists()) { marketState = snap.data(); updateUI(); }
+                else initializeCloudData();
+            });
+
+            // 2. 주식
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'stocks'), (snap) => {
+                stocks = snap.docs.map(d => d.data()).sort((a, b) => a.order - b.order);
+                if (stocks.length > 0) {
+                    renderStocks();
+                    updateChart();
+                    renderRankings();
+                    if (loggedInIdx !== null) renderInventory();
+                }
+            });
+
+            // 3. 학생
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (snap) => {
+                students = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+                renderRankings();
+                renderAdminStudents();
+                document.getElementById('loading-screen').style.display = 'none';
+            });
+
+            // 4. 주문 대기열
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), (snap) => {
+                orders = snap.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => b.timestamp - a.timestamp);
+                renderOrderQueue();
+            });
+        }
+
+        // --- 데이터 초기화 (최초 1회) ---
+        async function initializeCloudData() {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), marketState);
+            const initStocks = [
+                { id: 'GP', name: '고블린 포션', icon: '🧪', price: 10.0, basePrice: 10.0, history: [10.0], vol: 0.1, suspension: 0, order: 0 },
+                { id: 'DA', name: '드래곤 항공', icon: '🐉', price: 25.0, basePrice: 25.0, history: [25.0], vol: 0.2, suspension: 0, order: 1 },
+                { id: 'SF', name: '슬라임 푸드', icon: '🍮', price: 5.0, basePrice: 5.0, history: [5.0], vol: 0.25, suspension: 0, order: 2 },
+                { id: 'HW', name: '호두와트 지팡이', icon: '🪄', price: 8.0, basePrice: 8.0, history: [8.0], vol: 0.12, suspension: 0, order: 3 },
+                { id: 'HA', name: '용사 협회', icon: '⚔️', price: 15.0, basePrice: 15.0, history: [15.0], vol: 0.15, suspension: 0, order: 4 },
+                { id: 'GC', name: '골렘 건설', icon: '🧱', price: 12.0, basePrice: 12.0, history: [12.0], vol: 0.08, suspension: 0, order: 5 },
+                { id: 'EH', name: '엘프 힐링', icon: '🍃', price: 40.0, basePrice: 40.0, history: [40.0], vol: 0.1, suspension: 0, order: 6 },
+                { id: 'MM', name: '미믹 마켓', icon: '🎁', price: 3.0, basePrice: 3.0, history: [3.0], vol: 0.35, suspension: 0, order: 7 }
+            ];
+            for (const s of initStocks) {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', s.id), s);
+            }
+        }
+
+        // --- 관리자: 시장 진행 로직 ---
+        window.handleTimeStep = async () => {
+            if (!isAdmin) return;
+            const nextPhase = (marketState.dayPhase + 1) % 3;
+            const newState = { ...marketState, dayPhase: nextPhase };
+
+            if (nextPhase === 1) { // 오전장
+                stocks.forEach(s => { s.basePrice = s.price; if (s.suspension > 0) s.suspension--; });
+                await triggerStockMarket("오전");
+            } else if (nextPhase === 2) { // 오후장
+                await triggerStockMarket("오후");
+            } else { // 정산 및 다음날
+                await processDailySettlement();
+                newState.currentDay += 1;
+                // 학생 주문 제한 초기화
+                const batch = writeBatch(db);
+                students.forEach(s => {
+                    batch.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { lastOrderDay: -1 });
+                });
+                await batch.commit();
+                addNews(`📅 제 ${newState.currentDay}일 새로운 장이 열렸습니다.`);
+            }
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), newState);
+        };
+
+        async function triggerStockMarket(time) {
+            const batch = writeBatch(db);
+            stocks.forEach(s => {
+                if (s.suspension > 0) {
+                    if (time === "오전") s.history.push(s.price);
+                    else s.history[s.history.length-1] = s.price;
+                } else {
+                    let change = (Math.random() - 0.5) * s.vol * 2;
+                    let newPrice = s.price * (1 + change);
+                    const limit = s.basePrice * 0.3;
+                    if (newPrice > s.basePrice + limit) newPrice = s.basePrice + limit;
+                    if (newPrice < s.basePrice - limit) newPrice = s.basePrice - limit;
+                    if (newPrice <= 0.1) {
+                        newPrice = 0.1; s.suspension = 4;
+                        handleCloudLiquidation(s);
+                    }
+                    s.price = parseFloat(newPrice.toFixed(1));
+                    if (time === "오전") s.history.push(s.price);
+                    else s.history[s.history.length-1] = s.price;
+                }
+                batch.set(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', s.id), s);
+            });
+            await batch.commit();
+        }
+
+        async function handleCloudLiquidation(stock) {
+            addNews(`🚨 [위기] ${stock.name}이 0.1C에 도달하여 전량 강제 매각 및 정지되었습니다.`, 'bad');
+            students.forEach(async std => {
+                if (std.holdings?.[stock.id]?.qty > 0) {
+                    const refund = parseFloat((std.holdings[stock.id].qty * 0.1).toFixed(1));
+                    const newCash = parseFloat((std.cash + refund).toFixed(1));
+                    const newHoldings = { ...std.holdings };
+                    delete newHoldings[stock.id];
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: newCash, holdings: newHoldings });
+                }
+            });
+        }
+
+        async function processDailySettlement() {
+            const day = marketState.currentDay;
+            if (day % 10 === 0) {
+                students.forEach(async std => {
+                    let totalDiv = 0;
+                    ['SF', 'HA', 'MM'].forEach(sid => {
+                        const stk = stocks.find(s => s.id === sid);
+                        if (std.holdings?.[sid]?.qty > 0) {
+                            const dVal = stk.price * 0.05;
+                            if (dVal >= 0.1) totalDiv += dVal * std.holdings[sid].qty;
+                        }
+                    });
+                    if (totalDiv > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: parseFloat((std.cash + totalDiv).toFixed(1)) });
+                });
+                addNews(`💰 제 ${day}일 배당금이 금고에 입금되었습니다.`, 'good');
+            }
+            if (day % 30 === 0) {
+                students.forEach(async std => {
+                    const interest = std.cash * 0.1;
+                    if (interest > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: parseFloat((std.cash + interest).toFixed(1)) });
+                });
+                addNews(`🏦 제 ${day}일 정기 예금 이자가 지급되었습니다.`, 'good');
+            }
+        }
+
+        // --- 학생/관리자: 거래 시스템 ---
+        window.loginStudent = () => {
+            const n = document.getElementById('std-login-name').value;
+            const p = document.getElementById('std-login-pw').value;
+            const idx = students.findIndex(s => s.name === n && s.password === p);
+            document.getElementById('modal-student-login').style.display = 'none';
+            if (idx !== -1) { loggedInIdx = idx; openPortal(); }
+            else showToast("이름 혹은 비밀번호가 틀렸습니다.");
+        };
+
+        window.submitBasket = async () => {
+            if (basket.length === 0) return;
+            const std = students[loggedInIdx];
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), {
+                studentId: std.id, studentName: std.name, type: 'multi', basket: [...basket], timestamp: Date.now()
+            });
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { lastOrderDay: marketState.currentDay });
+            closePortal(); showToast("거래 신청 완료! 교사의 승인을 기다려주세요.");
+        };
+
+        window.submitBankOrder = async () => {
+            const qty = parseFloat(document.getElementById('portal-bank-qty').value);
+            if (!qty || qty <= 0) return;
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), {
+                studentId: students[loggedInIdx].id, studentName: students[loggedInIdx].name,
+                type: document.getElementById('portal-bank-type').value, qty, timestamp: Date.now()
+            });
+            document.getElementById('portal-bank-qty').value = ''; showToast("은행 신청 완료!");
+        };
+
+        window.processOrder = async (orderId, approved) => {
+            const ord = orders.find(o => o.id === orderId);
+            if (!ord) return;
+            const stdDoc = doc(db, 'artifacts', appId, 'public', 'data', 'students', ord.studentId);
+            const sSnap = await getDoc(stdDoc);
+            if (!sSnap.exists()) return;
+            const s = sSnap.data();
+
+            if (approved) {
+                if (ord.type === 'multi') {
+                    let cash = s.cash, h = { ...s.holdings } || {};
+                    ord.basket.forEach(item => {
+                        const stk = stocks.find(x => x.id === item.stockId);
+                        if (item.type === 'buy' && cash >= stk.price * item.qty) {
+                            cash -= stk.price * item.qty;
+                            if (!h[stk.id]) h[stk.id] = { qty: 0, avg: 0 };
+                            h[stk.id].avg = ((h[stk.id].qty * h[stk.id].avg) + (stk.price * item.qty)) / (h[stk.id].qty + item.qty);
+                            h[stk.id].qty += item.qty;
+                        } else if (item.type === 'sell' && h[stk.id]?.qty >= item.qty) {
+                            const profit = (stk.price - h[stk.id].avg) * item.qty;
+                            const tax = profit > 0 ? profit * 0.1 : 0;
+                            cash += (stk.price * item.qty) - tax;
+                            h[stk.id].qty -= item.qty;
+                            if (h[stk.id].qty <= 0) delete h[stk.id];
+                        }
+                    });
+                    await updateDoc(stdDoc, { cash: parseFloat(cash.toFixed(1)), holdings: h });
+                } else if (ord.type === 'withdraw' && s.cash >= ord.qty) {
+                    await updateDoc(stdDoc, { cash: parseFloat((s.cash - ord.qty).toFixed(1)) });
+                } else if (ord.type === 'deposit') {
+                    await updateDoc(stdDoc, { cash: parseFloat((s.cash + ord.qty).toFixed(1)) });
+                }
+            } else if (ord.type === 'multi') {
+                await updateDoc(stdDoc, { lastOrderDay: -1 });
+            }
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId));
+        };
+
+        // --- UI 매핑 및 기타 ---
+        function updateChart() {
+            if (stocks.length === 0) return;
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if (!chart) {
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: [], datasets: stocks.map((s, i) => ({ label: s.name, data: s.history, borderColor: ['#f59e0b','#3b82f6','#10b981','#a855f7','#ef4444','#71717a','#22c55e','#ec4899'][i], tension: 0.3, borderWidth: 2, pointRadius: 0 })) },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } }, x: { ticks: { color: '#64748b' } } } }
+                });
+            }
+            chart.data.labels = stocks[0]?.history.map((_, i) => `D${i+1}`) || [];
+            stocks.forEach((s, i) => { if (chart.data.datasets[i]) chart.data.datasets[i].data = s.history; });
+            chart.update('none');
+        }
+
+        function renderStocks() {
+            document.getElementById('stock-list-body').innerHTML = stocks.map(s => {
+                const diff = (s.price - s.basePrice).toFixed(1);
+                const color = diff >= 0 ? 'text-rose-500' : 'text-blue-500';
+                return `<tr class="border-b border-slate-800/50 text-white"><td class="py-3 font-bold text-xs">${s.icon} ${s.name} ${s.suspension > 0 ? '[정지]' : ''}</td><td class="py-3 text-right font-mono font-bold text-amber-200">${s.price.toFixed(1)}</td><td class="py-3 text-right font-mono text-[10px] ${color}">${diff >= 0 ? '▲' : '▼'}${Math.abs(diff)}</td></tr>`;
+            }).join('');
+        }
+
+        function renderRankings() {
+            const sorted = [...students].sort((a, b) => getAssets(b) - getAssets(a)).slice(0, 3);
+            document.getElementById('leaderboard').innerHTML = sorted.map((s, i) => `<div class="flex justify-between items-center text-sm text-white"><span>${i+1}. ${s.name}</span><span class="font-bold">${getAssets(s).toFixed(1)} C</span></div>`).join('');
+        }
+
+        function renderAdminStudents() {
+            document.getElementById('admin-student-list').innerHTML = students.map((s, idx) => `<tr class="bg-slate-900/40 border border-slate-800 text-white"><td class="p-3 font-bold cursor-pointer text-amber-200" onclick="openAdjustAsset(${idx})">${s.name}</td><td class="p-3 text-right font-mono">${s.cash.toFixed(1)}</td><td class="p-3 text-right font-mono font-bold">${getAssets(s).toFixed(1)}</td><td class="p-3 text-center"><button onclick="if(confirm('삭제?')) deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', '${s.id}'))" class="bg-rose-900/50 px-2 py-1 rounded text-[10px] text-rose-400">삭제</button></td></tr>`).join('');
+        }
+
+        function renderOrderQueue() {
+            const cont = document.getElementById('order-queue');
+            document.getElementById('order-count-badge').innerText = orders.length;
+            if (orders.length === 0) { cont.innerHTML = '<p class="text-center text-slate-600 py-20 text-xs italic">대기 주문 없음</p>'; return; }
+            cont.innerHTML = orders.map(o => {
+                let items = "";
+                if (o.type === 'multi') items = o.basket.map(i => `<div class="flex justify-between text-[9px] ${i.type==='buy'?'text-blue-400':'text-rose-400'} font-bold"><span>${i.type==='buy'?'매수':'매도'} ${i.stockId}</span><span>${i.qty}주</span></div>`).join('');
+                else items = `<div class="text-[10px] text-emerald-400 font-bold">${o.type==='withdraw'?'출금':'입금'}: ${o.qty}C</div>`;
+                return `<div class="order-card p-4 text-white"><div class="flex justify-between mb-2"><b>${o.studentName}</b><span class="text-[9px] opacity-50">${new Date(o.timestamp).toLocaleTimeString()}</span></div>${items}<div class="flex gap-2 mt-4"><button onclick="processOrder('${o.id}', true)" class="flex-1 bg-emerald-600 py-1 rounded text-[10px] font-bold">승인</button><button onclick="processOrder('${o.id}', false)" class="flex-1 bg-rose-600 py-1 rounded text-[10px] font-bold">거절</button></div></div>`;
+            }).join('');
+        }
+
+        function renderInventory() {
+            const s = students[loggedInIdx];
+            const cont = document.getElementById('portal-inventory');
+            cont.innerHTML = '';
+            if (s?.holdings) {
+                Object.keys(s.holdings).forEach(id => {
+                    const h = s.holdings[id], stk = stocks.find(x => x.id === id);
+                    if (h && h.qty > 0) {
+                        const yieldV = ((stk.price - h.avg) / h.avg * 100).toFixed(1);
+                        cont.innerHTML += `<div class="bg-slate-800/50 p-2 rounded-xl text-white text-[10px] flex justify-between"><span>${stk.icon} ${stk.name} ${h.qty}주</span><span class="${yieldV>=0?'text-rose-500':'text-blue-400'} font-bold">${yieldV>=0?'▲':'▼'} ${Math.abs(yieldV)}%</span></div>`;
+                    }
+                });
+            }
+        }
+
+        function getAssets(s) {
+            let v = 0; if (s.holdings) Object.keys(s.holdings).forEach(id => { const stk = stocks.find(x => x.id === id); if (stk) v += s.holdings[id].qty * stk.price; });
+            return s.cash + v;
+        }
+
+        function addNews(msg, type = 'blue') {
+            const p = document.createElement('p');
+            const col = type === 'good' ? 'border-emerald-500' : (type === 'bad' ? 'border-rose-500' : 'border-blue-500');
+            p.className = `border-l-4 ${col} bg-white/5 pl-3 py-1 rounded text-white font-bold mb-1 text-[11px]`;
+            p.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            document.getElementById('news-container').prepend(p);
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('game-toast'); t.innerText = msg; t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
+
+        window.toggleAdminAuth = () => { if (isAdmin) { isAdmin = false; showToast("로그아웃"); updateUI(); } else document.getElementById('modal-admin-login').style.display = 'flex'; };
+        window.checkAdminPW = () => { if (document.getElementById('admin-pw-input').value === "5105") { isAdmin = true; document.getElementById('modal-admin-login').style.display = 'none'; updateUI(); } else showToast("비번 오류"); };
+        window.switchView = (view) => {
+            document.getElementById('view-market').classList.toggle('hidden', view !== 'market');
+            document.getElementById('view-management').classList.toggle('hidden', view !== 'management');
+            document.getElementById('tab-market').classList.toggle('active', view === 'market');
+            document.getElementById('tab-management').classList.toggle('active', view === 'management');
+        };
+        window.addStudent = async () => {
+            const n = document.getElementById('new-student-name').value.trim(); if (!n) return;
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1 });
+            document.getElementById('new-student-name').value = '';
+        };
+        window.openAdjustAsset = (idx) => {
+            const s = students[idx]; document.getElementById('adjust-name').innerText = s.name;
+            document.getElementById('adjust-current-cash').innerText = s.cash.toFixed(1);
+            document.getElementById('adjust-input').value = ''; document.getElementById('modal-adjust-asset').style.display = 'flex';
+            document.getElementById('adjust-save-btn').onclick = async () => {
+                const v = parseFloat(document.getElementById('adjust-input').value);
+                if (!isNaN(v)) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + v).toFixed(1)) });
+                document.getElementById('modal-adjust-asset').style.display = 'none';
+            };
+        };
+        window.openStudentLoginModal = () => { document.getElementById('std-login-name').value = ''; document.getElementById('std-login-pw').value = ''; document.getElementById('modal-student-login').style.display = 'flex'; };
+        window.closePortal = () => { document.getElementById('modal-student-portal').style.display = 'none'; loggedInIdx = null; };
+        window.openPortal = () => {
+            const s = students[loggedInIdx];
+            document.getElementById('portal-user-name').innerText = s.name;
+            document.getElementById('portal-user-cash').innerText = `${s.cash.toFixed(1)} C`;
+            document.getElementById('portal-stock-list').innerHTML = stocks.map(st => `<option value="${st.id}" ${st.suspension > 0 ? 'disabled' : ''}>${st.icon} ${st.name} (${st.price}C) ${st.suspension>0?'[정지]':''}</option>`).join('');
+            const ls = document.getElementById('order-limit-status'), sb = document.getElementById('submit-basket-btn');
+            if (s.lastOrderDay === marketState.currentDay) { ls.innerText = "🚩 오늘 완료"; ls.className = "text-rose-500 font-bold"; sb.disabled = true; }
+            else { ls.innerText = "🟢 가능"; ls.className = "text-emerald-400 font-bold"; sb.disabled = false; }
+            basket = []; renderBasket(); renderInventory();
+            document.getElementById('modal-student-portal').style.display = 'flex';
+        };
+        window.addToBasket = () => {
+            const qty = parseInt(document.getElementById('portal-trade-qty').value); if (!qty || qty <= 0) return;
+            const stk = stocks.find(s => s.id === document.getElementById('portal-stock-list').value);
+            basket.push({ type: document.getElementById('portal-trade-type').value, stockId: stk.id, stockName: stk.name, icon: stk.icon, qty });
+            renderBasket(); document.getElementById('portal-trade-qty').value = '';
+        };
+        window.renderBasket = () => {
+            document.getElementById('basket-body').innerHTML = basket.map((it, i) => `<tr class="border-b border-slate-800 text-white text-[10px]"><td class="${it.type==='buy'?'text-blue-400':'text-rose-400'}">${it.type==='buy'?'매수':'매도'}</td><td>${it.icon}${it.stockName}</td><td class="text-right">${it.qty}주</td><td class="text-center"><button onclick="basket.splice(${i},1);renderBasket();">×</button></td></tr>`).join('');
+        };
+        function updateUI() {
+            document.getElementById('display-date').innerText = `제 ${marketState.currentDay} 일`;
+            const pb = document.getElementById('display-phase');
+            pb.className = `phase-badge phase-${marketState.dayPhase}`;
+            pb.innerText = ["오전 대기", "오후 대기", "정산 대기"][marketState.dayPhase];
+            document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? 'block' : 'none');
+        }
+
+        // 앱 시작
+        startApp();
+    </script>
+</body>
+</html>
