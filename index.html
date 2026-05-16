@@ -242,7 +242,7 @@
             <p id="delete-confirm-text" class="text-xs text-slate-400 mb-6 font-bold"></p>
             <div class="flex gap-2">
                 <button onclick="document.getElementById('modal-delete-confirm').style.display='none'" class="flex-1 bg-slate-800 py-3 rounded-xl text-xs font-bold">취소</button>
-                <button id="delete-confirm-btn" class="flex-1 bg-rose-600 py-3 rounded-xl text-xs font-bold">영구 삭제</button>
+                <button id="delete-confirm-btn" onclick="executeDeleteStudent()" class="flex-1 bg-rose-600 py-3 rounded-xl text-xs font-bold">영구 삭제</button>
             </div>
         </div>
     </div>
@@ -549,7 +549,7 @@
             document.getElementById('modal-delete-confirm').style.display = 'flex';
         };
 
-        document.getElementById('delete-confirm-btn').onclick = async () => {
+        window.executeDeleteStudent = async () => {
             if (deleteTargetId) {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', deleteTargetId));
                 deleteTargetId = null;
