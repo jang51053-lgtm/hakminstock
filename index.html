@@ -612,10 +612,42 @@
             document.getElementById('modal-student-portal').style.display = 'flex';
         };
         window.addToBasket = () => {
-            const qty = parseInt(document.getElementById('portal-trade-qty').value); if (!qty || qty <= 0) return;
-            const stk = stocks.find(s => s.id === document.getElementById('portal-stock-list').value);
-            basket.push({ type: document.getElementById('portal-trade-type').value, stockId: stk.id, stockName: stk.name, icon: stk.icon, qty });
-            renderBasket(); document.getElementById('portal-trade-qty').value = '';
+            const s = students[loggedInIdx];
+            const type = document.getElementById('portal-trade-type').value;
+            const stockId = document.getElementById('portal-stock-list').value;
+            const qty = parseInt(document.getElementById('portal-trade-qty').value); 
+            if (!qty || qty <= 0) return;
+            
+            const stk = stocks.find(x => x.id === stockId);
+            if (stk.suspension > 0) return showToast("거래 정지된 종목입니다.");
+
+            // 매도 시 보유량 검증
+            if (type === 'sell') {
+                const holdingQty = s.holdings && s.holdings[stockId] ? s.holdings[stockId].qty : 0;
+                // 장바구니에 이미 담긴 동일 종목 매도 수량 합산
+                const alreadyInBasket = basket.filter(item => item.type === 'sell' && item.stockId === stockId).reduce((sum, item) => sum + item.qty, 0);
+                
+                if (holdingQty < qty + alreadyInBasket) {
+                    return showToast(`보유 수량이 부족합니다. (현재 보유: ${holdingQty}주)`);
+                }
+            } 
+            // 매수 시 현금 검증
+            else if (type === 'buy') {
+                const cost = stk.price * qty;
+                // 장바구니에 이미 담긴 매수 총액 합산
+                const alreadySpent = basket.filter(item => item.type === 'buy').reduce((sum, item) => {
+                    const bStk = stocks.find(x => x.id === item.stockId);
+                    return sum + (bStk.price * item.qty);
+                }, 0);
+                
+                if (s.cash < cost + alreadySpent) {
+                    return showToast("현금이 부족합니다.");
+                }
+            }
+
+            basket.push({ type, stockId, stockName: stk.name, icon: stk.icon, qty });
+            renderBasket(); 
+            document.getElementById('portal-trade-qty').value = '';
         };
         window.renderBasket = () => {
             document.getElementById('basket-body').innerHTML = basket.map((it, i) => `<tr class="border-b border-slate-800 text-white text-[10px] text-white"><td class="${it.type==='buy'?'text-blue-400':'text-rose-400'}">${it.type==='buy'?'매수':'매도'}</td><td>${it.icon}${it.stockName}</td><td class="text-right">${it.qty}주</td><td class="text-center"><button onclick="basket.splice(${i},1);renderBasket();">×</button></td></tr>`).join('');
@@ -627,7 +659,17 @@
             closePortal(); showToast("거래 신청 완료!");
         };
         window.submitBankOrder = async () => {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { studentId: students[loggedInIdx].id, studentName: students[loggedInIdx].name, type: document.getElementById('portal-bank-type').value, qty: parseFloat(document.getElementById('portal-bank-qty').value), timestamp: Date.now() });
+            const type = document.getElementById('portal-bank-type').value;
+            const qty = parseFloat(document.getElementById('portal-bank-qty').value);
+            if (!qty || qty <= 0) return;
+
+            const std = students[loggedInIdx];
+            // 은행 출금 시 현금 검증
+            if (type === 'withdraw' && std.cash < qty) {
+                return showToast("출금할 현금이 부족합니다.");
+            }
+
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { studentId: std.id, studentName: std.name, type, qty, timestamp: Date.now() });
             document.getElementById('portal-bank-qty').value = ''; showToast("은행 신청 완료!");
         };
 
