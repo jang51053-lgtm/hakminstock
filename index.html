@@ -132,6 +132,7 @@
                                     <th class="px-2">이름</th>
                                     <th class="px-2 text-right">현금</th>
                                     <th class="px-2 text-right">총 자산</th>
+                                    <th class="px-2 text-center">뽑기권</th>
                                     <th class="px-2 text-center">비밀번호</th>
                                     <th class="px-2 text-center">관리</th>
                                 </tr>
@@ -293,7 +294,8 @@
                                 <span>🎰 가챠</span>
                                 <span id="gacha-pity-display" class="text-[10px] text-slate-500 font-mono"></span>
                             </h3>
-                            <p class="text-[10px] text-slate-500 mb-4">70회 천장 시 정예 쿠폰 확정 지급 · 10연은 레어 이상 1개 보장</p>
+                            <p class="text-[10px] text-slate-500 mb-2">70회 천장 시 정예 쿠폰 확정 지급 · 10연은 레어 이상 1개 보장</p>
+                            <p class="text-[11px] text-purple-400 font-bold mb-4">🎫 보유 뽑기권 <span id="gacha-ticket-display">0</span>장 <span class="text-slate-600 font-normal">(부족분은 골드로 자동 결제)</span></p>
                             <div class="flex gap-2">
                                 <button onclick="pullGacha(1)" class="flex-1 btn-action bg-blue-600 py-3 text-xs">1회 뽑기</button>
                                 <button onclick="pullGacha(10)" class="flex-1 btn-action bg-amber-600 py-3 text-xs">10연 뽑기</button>
@@ -333,8 +335,8 @@
 
     <div id="modal-adjust-asset" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
         <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-80 text-white text-white">
-            <h2 class="text-lg font-black mb-2"><span id="adjust-name"></span> 자산 조정</h2>
-            <p class="text-xs text-slate-500 mb-6 text-white">현재 잔액: <span id="adjust-current-cash" class="text-emerald-400 font-mono">0.0</span>C</p>
+            <h2 class="text-lg font-black mb-2"><span id="adjust-name"></span> <span id="adjust-modal-title">자산 조정</span></h2>
+            <p class="text-xs text-slate-500 mb-6 text-white"><span id="adjust-current-label">현재 잔액:</span> <span id="adjust-current-cash" class="text-emerald-400 font-mono">0.0</span><span id="adjust-unit">C</span></p>
             <input type="number" id="adjust-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white mb-4" placeholder="조정할 금액 (+/-)">
             <div class="flex gap-2 text-white"><button onclick="document.getElementById('modal-adjust-asset').style.display='none'" class="flex-1 bg-slate-800 py-3 rounded-xl text-xs font-bold">취소</button><button id="adjust-save-btn" class="flex-1 bg-emerald-600 py-3 rounded-xl text-xs font-bold">적용</button></div>
         </div>
@@ -694,15 +696,27 @@
             };
         };
 
-        window.openAdjustAsset = (idx) => {
+        window.openAdjustAsset = (idx, field = 'cash') => {
             const s = students[idx];
+            const isCash = field === 'cash';
             document.getElementById('adjust-name').innerText = s.name;
-            document.getElementById('adjust-current-cash').innerText = s.cash.toFixed(1);
+            document.getElementById('adjust-modal-title').innerText = isCash ? '자산 조정' : '뽑기권 지급';
+            document.getElementById('adjust-current-label').innerText = isCash ? '현재 잔액:' : '현재 보유:';
+            document.getElementById('adjust-current-cash').innerText = isCash ? s.cash.toFixed(1) : (s.ticketCount || 0);
+            document.getElementById('adjust-unit').innerText = isCash ? 'C' : '장';
             document.getElementById('adjust-input').value = '';
+            document.getElementById('adjust-input').placeholder = isCash ? '조정할 금액 (+/-)' : '지급할 뽑기권 수 (+/-)';
             document.getElementById('modal-adjust-asset').style.display = 'flex';
             document.getElementById('adjust-save-btn').onclick = async () => {
                 const v = parseFloat(document.getElementById('adjust-input').value);
-                if (!isNaN(v)) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + v).toFixed(1)) });
+                if (!isNaN(v)) {
+                    if (isCash) {
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + v).toFixed(1)) });
+                    } else {
+                        const newCount = Math.max(0, (s.ticketCount || 0) + Math.round(v));
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { ticketCount: newCount });
+                    }
+                }
                 document.getElementById('modal-adjust-asset').style.display = 'none';
             };
         };
@@ -777,7 +791,7 @@
         }
 
         function renderAdminStudents() {
-            document.getElementById('admin-student-list').innerHTML = students.map((s, idx) => `<tr class="bg-slate-900/40 border border-slate-800 text-white text-white text-white"><td class="p-3 font-bold cursor-pointer text-amber-200" onclick="openAdjustAsset(${idx})">${s.name}</td><td class="p-3 text-right font-mono">${s.cash.toFixed(1)}</td><td class="p-3 text-right font-mono font-bold">${getAssets(s).toFixed(1)}</td><td class="p-3 text-center"><div class="flex items-center justify-center gap-2"><span class="text-[10px] text-slate-500 font-mono">****</span><button onclick="openEditPW(${idx})" class="bg-blue-900/30 text-blue-400 border border-blue-900 px-2 py-0.5 rounded text-[10px] hover:bg-blue-600 hover:text-white">관리</button></div></td><td class="p-3 text-center"><button onclick="openDeleteConfirm('${s.id}', '${s.name}')" class="bg-rose-900/50 px-2 py-1 rounded text-[10px] text-rose-400 hover:bg-rose-700 hover:text-white">삭제</button></td></tr>`).join('');
+            document.getElementById('admin-student-list').innerHTML = students.map((s, idx) => `<tr class="bg-slate-900/40 border border-slate-800 text-white text-white text-white"><td class="p-3 font-bold cursor-pointer text-amber-200" onclick="openAdjustAsset(${idx},'cash')">${s.name}</td><td class="p-3 text-right font-mono">${s.cash.toFixed(1)}</td><td class="p-3 text-right font-mono font-bold">${getAssets(s).toFixed(1)}</td><td class="p-3 text-center"><div class="flex items-center justify-center gap-2"><span class="text-[10px] text-purple-400 font-mono">${s.ticketCount||0}장</span><button onclick="openAdjustAsset(${idx},'ticket')" class="bg-purple-900/30 text-purple-400 border border-purple-900 px-2 py-0.5 rounded text-[10px] hover:bg-purple-600 hover:text-white">지급</button></div></td><td class="p-3 text-center"><div class="flex items-center justify-center gap-2"><span class="text-[10px] text-slate-500 font-mono">****</span><button onclick="openEditPW(${idx})" class="bg-blue-900/30 text-blue-400 border border-blue-900 px-2 py-0.5 rounded text-[10px] hover:bg-blue-600 hover:text-white">관리</button></div></td><td class="p-3 text-center"><button onclick="openDeleteConfirm('${s.id}', '${s.name}')" class="bg-rose-900/50 px-2 py-1 rounded text-[10px] text-rose-400 hover:bg-rose-700 hover:text-white">삭제</button></td></tr>`).join('');
         }
 
         window.openDeleteConfirm = (id, name) => {
@@ -881,7 +895,7 @@
             document.getElementById('portal-tab-market').classList.toggle('active', v === 'market');
             if (v === 'market') { renderPortalShop(); renderPortalSeats(); renderPortalCoupons(); renderGachaPityDisplay(); }
         };
-        window.addStudent = async () => { const n = document.getElementById('new-student-name').value.trim(); if (!n) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1, gachaPity: 0, inventory: [] }); document.getElementById('new-student-name').value = ''; };
+        window.addStudent = async () => { const n = document.getElementById('new-student-name').value.trim(); if (!n) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1, gachaPity: 0, inventory: [], ticketCount: 0 }); document.getElementById('new-student-name').value = ''; };
 
         // --- 상점 아이템 관리 (관리자) ---
         window.addShopItem = async () => {
@@ -1120,10 +1134,12 @@
 
         function renderGachaPityDisplay() {
             const el = document.getElementById('gacha-pity-display');
+            const ticketEl = document.getElementById('gacha-ticket-display');
             const std = students[loggedInIdx];
-            if (!el || !std) return;
+            if (!std) return;
             const pity = std.gachaPity || 0;
-            el.innerText = `천장 ${pity}/70`;
+            if (el) el.innerText = `천장 ${pity}/70`;
+            if (ticketEl) ticketEl.innerText = std.ticketCount || 0;
         }
 
         // --- 가챠 확률 엔진 (하드천장 70 / 소프트천장 40~69 / 10연 레어이상 보장) ---
@@ -1163,18 +1179,24 @@
             if (!std) return;
             if (gachaPool.length === 0) return showToast("가챠 풀이 비어있습니다. 관리자에게 문의하세요.");
             const cost = marketState.gachaCost || { single: 5, ten: 45 };
-            const price = count === 10 ? cost.ten : cost.single * count;
-            if (std.cash < price) return showToast("골드가 부족합니다.");
+            const ticketsAvailable = std.ticketCount || 0;
+            const ticketsUsed = Math.min(count, ticketsAvailable);
+            const remaining = count - ticketsUsed;
+            const goldCost = remaining === 0 ? 0 : (ticketsUsed === 0 && count === 10 ? cost.ten : remaining * cost.single);
+            if (std.cash < goldCost) return showToast("골드가 부족합니다.");
             const startPity = std.gachaPity || 0;
             const { results, endPity } = runGachaRolls(count, startPity);
             const drawn = results.map(tier => {
                 const item = pickFromPool(tier) || pickFromPool('normal') || pickFromPool('rare') || pickFromPool('elite');
                 return { instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item?.name || '???', icon: item?.icon || '🎁', tier, source: 'gacha', obtainedAt: Date.now() };
             });
-            const newCash = parseFloat((std.cash - price).toFixed(1));
+            const newCash = parseFloat((std.cash - goldCost).toFixed(1));
+            const newTickets = ticketsAvailable - ticketsUsed;
             const inv = [...(std.inventory || []), ...drawn];
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: newCash, gachaPity: endPity, inventory: inv });
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: newCash, gachaPity: endPity, inventory: inv, ticketCount: newTickets });
             playGachaAnimation(drawn, endPity);
+            if (ticketsUsed > 0 && goldCost > 0) showToast(`🎫 뽑기권 ${ticketsUsed}장 + ${goldCost}C 사용`);
+            else if (ticketsUsed > 0) showToast(`🎫 뽑기권 ${ticketsUsed}장 사용`);
         };
 
         // --- 가챠 연출 ---
