@@ -16,7 +16,7 @@
         .btn-action:active { transform: scale(0.95); }
         .nav-tab { cursor: pointer; transition: all 0.3s; padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid transparent; }
         .nav-tab.active { background: rgba(59, 130, 246, 0.1); border-color: var(--fantasy-blue); color: var(--fantasy-blue); }
-        .modal-overlay { background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(8px); display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; }
+        .modal-overlay { background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(8px); display: none; position: fixed; inset: 0; z-index: 100; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 3rem 1rem; }
         .toast-msg { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); z-index: 1000; padding: 1rem 2rem; border-radius: 1rem; background: #1e293b; color: white; border: 1px solid #3b82f6; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none; font-weight: bold; }
         .order-card { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 1rem; transition: all 0.2s; }
         .order-card:hover { border-color: var(--fantasy-blue); background: rgba(30, 41, 59, 0.8); }
@@ -181,12 +181,12 @@
                     <div class="flex flex-wrap gap-2 mb-4 bg-slate-900/50 p-4 rounded-xl">
                         <input type="text" id="new-seat-name" class="flex-1 min-w-[120px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="자리 이름 (예: 창가 3번)">
                         <input type="number" id="new-seat-price" class="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="가격">
-                        <input type="number" id="new-seat-income" class="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="월 패시브 수익">
+                        <input type="number" id="new-seat-income" class="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="주당 코인 생산">
                         <button onclick="addSeat()" class="bg-emerald-600 px-4 py-1.5 rounded-lg text-xs font-bold">추가</button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs border-separate border-spacing-y-2">
-                            <thead><tr class="text-slate-500 uppercase font-bold"><th class="px-2">이름</th><th class="px-2">가격</th><th class="px-2">월 수익</th><th class="px-2 text-center">소유자</th><th class="px-2 text-center">관리</th></tr></thead>
+                            <thead><tr class="text-slate-500 uppercase font-bold"><th class="px-2">이름</th><th class="px-2">가격</th><th class="px-2">주당 생산</th><th class="px-2 text-center">소유자</th><th class="px-2 text-center">관리</th></tr></thead>
                             <tbody id="seatadmin-list"></tbody>
                         </table>
                     </div>
@@ -503,7 +503,7 @@
         }
 
         async function initializeCloud() {
-            marketState = { currentDay: 1, dayPhase: 0, adminPassword: "5105", autoMode: false, lastAutoTrigger: "", lastSeatPayoutMonth: "", gachaCost: { single: 5, ten: 45 } };
+            marketState = { currentDay: 1, dayPhase: 0, adminPassword: "5105", autoMode: false, lastAutoTrigger: "", lastSeatPayoutAt: 0, gachaCost: { single: 5, ten: 45 } };
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), marketState);
             const list = getInitStocks();
             for (const item of list) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', item.id), item); }
@@ -521,7 +521,7 @@
                 const b = writeBatch(db);
 
                 // 1. 시장 상태 리셋 (관리자 비밀번호/가챠 가격 설정은 유지)
-                marketState = { ...marketState, currentDay: 1, dayPhase: 0, lastAutoTrigger: "", lastSeatPayoutMonth: "" };
+                marketState = { ...marketState, currentDay: 1, dayPhase: 0, lastAutoTrigger: "", lastSeatPayoutAt: 0 };
                 b.set(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), marketState);
 
                 // 2. 주식 리셋
@@ -613,22 +613,22 @@
             }
         }
 
+        const SEAT_PAYOUT_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 주 1회
         async function checkSeatPayout() {
-            const now = new Date();
-            if (now.getDate() !== 1) return;
-            const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-            if (marketState.lastSeatPayoutMonth === monthKey) return;
+            const now = Date.now();
+            const last = marketState.lastSeatPayoutAt || 0;
+            if (now - last < SEAT_PAYOUT_INTERVAL_MS) return;
             try {
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { lastSeatPayoutMonth: monthKey });
-                marketState.lastSeatPayoutMonth = monthKey;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { lastSeatPayoutAt: now });
+                marketState.lastSeatPayoutAt = now;
             } catch (e) { return; }
             const owned = seats.filter(s => s.ownerId);
             for (const seat of owned) {
                 const std = students.find(x => x.id === seat.ownerId);
-                if (!std || !seat.monthlyIncome) continue;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: parseFloat((std.cash + seat.monthlyIncome).toFixed(1)) });
+                if (!std || !seat.weeklyIncome) continue;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: parseFloat((std.cash + seat.weeklyIncome).toFixed(1)) });
             }
-            if (owned.length > 0) showToast(`🏠 부동산 패시브 수익 ${owned.length}건 지급 완료`);
+            if (owned.length > 0) showToast(`🏠 부동산 주급 ${owned.length}건 지급 완료`);
         }
 
         setInterval(() => { checkAutoSchedule(); checkSeatPayout(); }, 60000);
@@ -936,21 +936,21 @@
         window.addSeat = async () => {
             const name = document.getElementById('new-seat-name').value.trim();
             const price = parseFloat(document.getElementById('new-seat-price').value);
-            const monthlyIncome = parseFloat(document.getElementById('new-seat-income').value) || 0;
+            const weeklyIncome = parseFloat(document.getElementById('new-seat-income').value) || 0;
             if (!name || !price) return showToast("자리 이름과 가격을 입력하세요.");
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'seats'), { name, price, monthlyIncome, ownerId: null, ownerName: null, order: seats.length });
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'seats'), { name, price, weeklyIncome, ownerId: null, ownerName: null, order: seats.length });
             document.getElementById('new-seat-name').value = ''; document.getElementById('new-seat-price').value = ''; document.getElementById('new-seat-income').value = '';
         };
         window.deleteSeat = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id)); };
         window.updateSeatField = async (id, field, value) => {
-            const val = (field === 'price' || field === 'monthlyIncome') ? (parseFloat(value) || 0) : value;
+            const val = (field === 'price' || field === 'weeklyIncome') ? (parseFloat(value) || 0) : value;
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id), { [field]: val });
         };
         window.releaseSeat = async (id) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id), { ownerId: null, ownerName: null }); showToast("소유 해제됨"); };
         function renderSeatAdmin() {
             const cont = document.getElementById('seatadmin-list');
             if (!cont) return;
-            cont.innerHTML = seats.map(s => `<tr class="bg-slate-900/40 border border-slate-800 text-xs"><td class="p-2"><input value="${s.name}" onchange="updateSeatField('${s.id}','name',this.value)" class="bg-transparent w-full"></td><td class="p-2"><input type="number" value="${s.price}" onchange="updateSeatField('${s.id}','price',this.value)" class="bg-transparent w-20 text-right"></td><td class="p-2"><input type="number" value="${s.monthlyIncome||0}" onchange="updateSeatField('${s.id}','monthlyIncome',this.value)" class="bg-transparent w-20 text-right"></td><td class="p-2 text-center">${s.ownerName ? `<span class="text-emerald-400 font-bold">${s.ownerName}</span> <button onclick="releaseSeat('${s.id}')" class="ml-1 text-[9px] text-rose-400 underline">해제</button>` : '<span class="text-slate-600">공석</span>'}</td><td class="p-2 text-center"><button onclick="deleteSeat('${s.id}')" class="bg-rose-900/50 text-rose-400 px-2 py-1 rounded text-[10px]">삭제</button></td></tr>`).join('') || '<tr><td colspan="5" class="text-center text-slate-600 py-6 italic">등록된 자리가 없습니다.</td></tr>';
+            cont.innerHTML = seats.map(s => `<tr class="bg-slate-900/40 border border-slate-800 text-xs"><td class="p-2"><input value="${s.name}" onchange="updateSeatField('${s.id}','name',this.value)" class="bg-transparent w-full"></td><td class="p-2"><input type="number" value="${s.price}" onchange="updateSeatField('${s.id}','price',this.value)" class="bg-transparent w-20 text-right"></td><td class="p-2"><input type="number" value="${s.weeklyIncome||0}" onchange="updateSeatField('${s.id}','weeklyIncome',this.value)" class="bg-transparent w-20 text-right"></td><td class="p-2 text-center">${s.ownerName ? `<span class="text-emerald-400 font-bold">${s.ownerName}</span> <button onclick="releaseSeat('${s.id}')" class="ml-1 text-[9px] text-rose-400 underline">해제</button>` : '<span class="text-slate-600">공석</span>'}</td><td class="p-2 text-center"><button onclick="deleteSeat('${s.id}')" class="bg-rose-900/50 text-rose-400 px-2 py-1 rounded text-[10px]">삭제</button></td></tr>`).join('') || '<tr><td colspan="5" class="text-center text-slate-600 py-6 italic">등록된 자리가 없습니다.</td></tr>';
         }
 
         // --- 가챠 풀 관리 (관리자) ---
@@ -1065,7 +1065,7 @@
             cont.innerHTML = `
                 <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">현금</p><p class="text-sm font-mono font-black text-emerald-400">${s.cash.toFixed(1)} C</p></div>
                 <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">주식 평가액</p><p class="text-sm font-mono font-black text-blue-400">${stockValue.toFixed(1)} C</p></div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">내 자리</p><p class="text-sm font-black text-amber-400">${mySeat ? mySeat.name : '없음'}</p></div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">내 자리</p><p class="text-sm font-black text-amber-400">${mySeat ? mySeat.name : '없음'}</p>${mySeat ? `<p class="text-[9px] text-amber-300 font-mono mt-0.5">주당 ${mySeat.weeklyIncome||0}C</p>` : ''}</div>
                 <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">보유 쿠폰</p><p class="text-sm font-black text-purple-400">${couponCount}개</p></div>
             `;
         }
@@ -1096,7 +1096,8 @@
             cont.innerHTML = seats.map(s => {
                 const mine = s.ownerId === std.id;
                 const taken = !!s.ownerId;
-                return `<div class="bg-slate-900/50 p-3 rounded-xl border ${mine ? 'border-emerald-500' : 'border-slate-800'} text-center"><p class="text-xs font-bold">${s.name}</p><p class="text-[10px] text-slate-500 font-mono">${s.price}C · 월 ${s.monthlyIncome||0}C</p>${mine ? '<p class="text-[10px] text-emerald-400 font-bold mt-1">내 자리</p>' : taken ? `<p class="text-[10px] text-slate-600 mt-1">${s.ownerName} 소유</p>` : `<button onclick="buySeat('${s.id}')" class="mt-1 bg-emerald-600 px-2 py-1 rounded text-[10px] font-bold">구매</button>`}</div>`;
+                const sellPrice = Math.round(s.price * 0.8 * 10) / 10;
+                return `<div class="bg-slate-900/50 p-3 rounded-xl border ${mine ? 'border-emerald-500' : 'border-slate-800'} text-center"><p class="text-xs font-bold">${s.name}</p><p class="text-[10px] text-slate-500 font-mono">${s.price}C · 주당 ${s.weeklyIncome||0}C</p>${mine ? `<p class="text-[10px] text-emerald-400 font-bold mt-1">내 자리</p><button onclick="sellSeat('${s.id}')" class="mt-1 bg-rose-900/50 text-rose-400 border border-rose-900 px-2 py-0.5 rounded text-[9px] font-bold hover:bg-rose-700 hover:text-white">${sellPrice}C에 매각</button>` : taken ? `<p class="text-[10px] text-slate-600 mt-1">${s.ownerName} 소유</p>` : `<button onclick="buySeat('${s.id}')" class="mt-1 bg-emerald-600 px-2 py-1 rounded text-[10px] font-bold">구매</button>`}</div>`;
             }).join('');
         }
         window.buySeat = async (id) => {
@@ -1123,6 +1124,30 @@
                 else showToast("구매 중 오류가 발생했습니다.");
             }
         };
+        window.sellSeat = async (id) => {
+            const std = students[loggedInIdx];
+            const seat = seats.find(x => x.id === id);
+            if (!std || !seat) return;
+            if (seat.ownerId !== std.id) return showToast("본인 소유 자리가 아닙니다.");
+            const sellPrice = parseFloat((seat.price * 0.8).toFixed(1));
+            if (!confirm(`${seat.name}을(를) ${sellPrice}C에 매각하시겠습니까? (원가의 80%)`)) return;
+            try {
+                await runTransaction(db, async (tx) => {
+                    const seatRef = doc(db, 'artifacts', appId, 'public', 'data', 'seats', id);
+                    const seatSnap = await tx.get(seatRef);
+                    if (!seatSnap.exists() || seatSnap.data().ownerId !== std.id) throw new Error('NOTOWNER');
+                    const stdRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id);
+                    const stdSnap = await tx.get(stdRef);
+                    const curCash = stdSnap.data().cash;
+                    tx.update(seatRef, { ownerId: null, ownerName: null });
+                    tx.update(stdRef, { cash: parseFloat((curCash + sellPrice).toFixed(1)) });
+                });
+                showToast(`${seat.name} 매각 완료! ${sellPrice}C 획득`);
+            } catch (e) {
+                if (e.message === 'NOTOWNER') showToast("본인 소유 자리가 아닙니다.");
+                else showToast("매각 중 오류가 발생했습니다.");
+            }
+        };
 
         // --- 쿠폰 인벤토리 / 사용 신청 ---
         function renderPortalCoupons() {
@@ -1132,7 +1157,7 @@
             const inv = std.inventory || [];
             if (inv.length === 0) { cont.innerHTML = '<p class="text-center text-slate-600 text-xs py-6 italic">보유 중인 쿠폰이 없습니다.</p>'; return; }
             const tierClass = { elite: 'tier-elite', rare: 'tier-rare', normal: 'tier-normal' };
-            cont.innerHTML = inv.map(it => `<div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl"><span class="text-xs font-bold ${tierClass[it.tier]||''}">${it.icon} ${it.name}</span>${it.pendingOrderId ? '<span class="text-[10px] text-amber-400 font-bold">승인 대기중</span>' : `<button onclick="requestRedeem('${it.instanceId}')" class="bg-purple-600 px-3 py-1 rounded-lg text-[10px] font-bold">사용 신청</button>`}</div>`).join('');
+            cont.innerHTML = inv.map(it => `<div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl"><span class="text-xs font-bold ${tierClass[it.tier]||''}">${it.icon} ${it.name}</span>${it.pendingOrderId ? '<span class="text-[10px] text-amber-400 font-bold">승인 대기중</span>' : `<div class="flex gap-1"><button onclick="requestRedeem('${it.instanceId}')" class="bg-purple-600 px-3 py-1 rounded-lg text-[10px] font-bold">사용 신청</button><button onclick="discardCoupon('${it.instanceId}')" class="bg-slate-800 text-slate-400 px-2 py-1 rounded-lg text-[10px] font-bold hover:bg-rose-900 hover:text-rose-400">버리기</button></div>`}</div>`).join('');
         }
         window.requestRedeem = async (instanceId) => {
             const std = students[loggedInIdx];
@@ -1144,6 +1169,13 @@
             inv[idx] = { ...inv[idx], pendingOrderId: orderRef.id };
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { inventory: inv });
             showToast("사용 신청 완료! 관리자 승인을 기다려주세요.");
+        };
+        window.discardCoupon = async (instanceId) => {
+            const std = students[loggedInIdx];
+            if (!std) return;
+            const inv = (std.inventory || []).filter(x => x.instanceId !== instanceId);
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { inventory: inv });
+            showToast("쿠폰을 버렸습니다.");
         };
 
         function renderGachaPityDisplay() {
