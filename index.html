@@ -28,6 +28,16 @@
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .loading-screen { position: fixed; inset: 0; background: #020617; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .tier-elite { color: #fbbf24; }
+        .tier-rare { color: #a855f7; }
+        .tier-normal { color: #3b82f6; }
+        .gacha-beam { width: 60px; height: 220px; margin: 0 auto; background: linear-gradient(to top, transparent, var(--beam-color, #3b82f6), transparent); border-radius: 50%; filter: blur(4px); animation: beam-pulse 1.6s ease-in-out; box-shadow: 0 0 60px 20px var(--beam-color, #3b82f6); }
+        @keyframes beam-pulse { 0% { opacity:0; transform: scaleY(0.3); } 30% { opacity:1; transform: scaleY(1); } 70% { opacity:1; transform: scaleY(1.05); } 100% { opacity:0; transform: scaleY(1.2); } }
+        .gacha-card { width: 120px; opacity: 0; animation: card-pop 0.5s ease forwards; }
+        @keyframes card-pop { 0% { opacity:0; transform: scale(0.3) rotateY(180deg); } 100% { opacity:1; transform: scale(1) rotateY(0deg); } }
+        .gacha-card-inner { background: rgba(15,23,42,0.9); border: 2px solid var(--tier-color, #3b82f6); box-shadow: 0 0 20px var(--tier-glow, rgba(59,130,246,0.4)); border-radius: 1rem; padding: 1rem 0.5rem; text-align: center; }
+        .settings-btn { width: 32px; height: 32px; border-radius: 0.5rem; background: #1e293b; border: 1px solid #334155; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .settings-btn:hover { background: #334155; }
     </style>
 </head>
 <body class="min-h-screen text-white">
@@ -53,10 +63,12 @@
             <div class="hidden md:flex gap-4 font-bold text-slate-400">
                 <div id="tab-market" onclick="switchView('market')" class="nav-tab active">시황 중계</div>
                 <div id="tab-management" onclick="switchView('management')" class="nav-tab admin-only">모험가 관리</div>
+                <div id="tab-shopadmin" onclick="switchView('shopadmin')" class="nav-tab admin-only">마켓 관리</div>
                 <div onclick="openStudentLoginModal()" class="nav-tab text-emerald-400 border-emerald-900/30 bg-emerald-900/10">내 계좌 확인</div>
             </div>
 
             <div class="flex items-center gap-4">
+                <button id="admin-settings-btn" onclick="openAdminSettings()" class="settings-btn admin-only" title="관리자 설정">⚙️</button>
                 <button id="admin-login-btn" onclick="toggleAdminAuth()" class="text-[10px] bg-slate-800 px-3 py-1.5 rounded-lg font-bold border border-slate-700">관리자</button>
                 <div class="text-right">
                     <p id="display-date" class="text-lg font-black leading-none">제 1 일 [오전]</p>
@@ -139,6 +151,66 @@
                 </div>
             </div>
         </div>
+
+        <div id="view-shopadmin" class="hidden grid grid-cols-1 gap-6 text-white admin-only">
+            <div class="fantasy-card p-6">
+                <div class="flex gap-2 mb-6 border-b border-slate-800 pb-4">
+                    <button onclick="switchShopAdminTab('shop')" id="shopadmin-tab-shop" class="nav-tab active">🛍️ 상점 아이템</button>
+                    <button onclick="switchShopAdminTab('seat')" id="shopadmin-tab-seat" class="nav-tab">🪑 좌석(부동산)</button>
+                    <button onclick="switchShopAdminTab('gacha')" id="shopadmin-tab-gacha" class="nav-tab">🎰 가챠 풀</button>
+                </div>
+
+                <div id="shopadmin-panel-shop">
+                    <div class="flex flex-wrap gap-2 mb-4 bg-slate-900/50 p-4 rounded-xl">
+                        <input type="text" id="new-shop-icon" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-center" placeholder="🎁">
+                        <input type="text" id="new-shop-name" class="flex-1 min-w-[120px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="아이템 이름">
+                        <input type="number" id="new-shop-price" class="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="가격">
+                        <input type="text" id="new-shop-desc" class="flex-1 min-w-[140px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="설명 (선택)">
+                        <button onclick="addShopItem()" class="bg-blue-600 px-4 py-1.5 rounded-lg text-xs font-bold">추가</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-separate border-spacing-y-2">
+                            <thead><tr class="text-slate-500 uppercase font-bold"><th class="px-2">아이콘</th><th class="px-2">이름</th><th class="px-2">가격</th><th class="px-2">설명</th><th class="px-2 text-center">관리</th></tr></thead>
+                            <tbody id="shopadmin-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="shopadmin-panel-seat" class="hidden">
+                    <div class="flex flex-wrap gap-2 mb-4 bg-slate-900/50 p-4 rounded-xl">
+                        <input type="text" id="new-seat-name" class="flex-1 min-w-[120px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="자리 이름 (예: 창가 3번)">
+                        <input type="number" id="new-seat-price" class="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="가격">
+                        <input type="number" id="new-seat-income" class="w-28 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="월 패시브 수익">
+                        <button onclick="addSeat()" class="bg-emerald-600 px-4 py-1.5 rounded-lg text-xs font-bold">추가</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-separate border-spacing-y-2">
+                            <thead><tr class="text-slate-500 uppercase font-bold"><th class="px-2">이름</th><th class="px-2">가격</th><th class="px-2">월 수익</th><th class="px-2 text-center">소유자</th><th class="px-2 text-center">관리</th></tr></thead>
+                            <tbody id="seatadmin-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="shopadmin-panel-gacha" class="hidden">
+                    <div class="flex flex-wrap gap-2 mb-4 bg-slate-900/50 p-4 rounded-xl">
+                        <input type="text" id="new-gacha-icon" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-center" placeholder="🎫">
+                        <input type="text" id="new-gacha-name" class="flex-1 min-w-[120px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="쿠폰 이름">
+                        <select id="new-gacha-tier" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+                            <option value="normal">일반</option>
+                            <option value="rare">레어</option>
+                            <option value="elite">정예</option>
+                        </select>
+                        <button onclick="addGachaItem()" class="bg-amber-600 px-4 py-1.5 rounded-lg text-xs font-bold">추가</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-separate border-spacing-y-2">
+                            <thead><tr class="text-slate-500 uppercase font-bold"><th class="px-2">아이콘</th><th class="px-2">이름</th><th class="px-2 text-center">등급</th><th class="px-2 text-center">관리</th></tr></thead>
+                            <tbody id="gachaadmin-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- 모달: 로그인 -->
@@ -158,7 +230,7 @@
         <div class="bg-slate-900 border border-slate-800 w-full max-w-4xl rounded-3xl overflow-hidden m-4 relative text-white">
             <button onclick="closePortal()" class="absolute top-4 right-4 text-slate-500 hover:text-white text-2xl z-10">&times;</button>
             <div class="p-8">
-                <div class="flex justify-between items-end border-b border-slate-800 pb-6 mb-6">
+                <div class="flex justify-between items-end border-b border-slate-800 pb-6 mb-4">
                     <div>
                         <h2 id="portal-user-name" class="text-3xl font-black">모험가</h2>
                         <p class="text-xs text-blue-400 font-bold uppercase">Personal Multi-Order Portal</p>
@@ -168,7 +240,12 @@
                         <p id="portal-user-cash" class="text-3xl font-mono font-bold text-emerald-400">0.0 C</p>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="portal-asset-overview" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6"></div>
+                <div class="flex gap-2 mb-6">
+                    <div id="portal-tab-trade" onclick="switchPortalTab('trade')" class="nav-tab active">📈 거래소</div>
+                    <div id="portal-tab-market" onclick="switchPortalTab('market')" class="nav-tab">🏪 마켓</div>
+                </div>
+                <div id="portal-view-trade" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 space-y-4">
                         <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800">
                             <h3 class="text-xs font-black text-blue-400 uppercase mb-4 flex justify-between">
@@ -206,6 +283,34 @@
                             <h3 class="text-xs font-black text-amber-400 uppercase">📦 내 가방 (현재 수익률)</h3>
                             <div id="portal-inventory" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2"></div>
                         </div>
+                    </div>
+                </div>
+
+                <div id="portal-view-market" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-slate-950 p-6 rounded-2xl border border-amber-500/30">
+                            <h3 class="text-xs font-black text-amber-400 uppercase mb-2 flex justify-between items-center">
+                                <span>🎰 가챠</span>
+                                <span id="gacha-pity-display" class="text-[10px] text-slate-500 font-mono"></span>
+                            </h3>
+                            <p class="text-[10px] text-slate-500 mb-4">70회 천장 시 정예 쿠폰 확정 지급 · 10연은 레어 이상 1개 보장</p>
+                            <div class="flex gap-2">
+                                <button onclick="pullGacha(1)" class="flex-1 btn-action bg-blue-600 py-3 text-xs">1회 뽑기</button>
+                                <button onclick="pullGacha(10)" class="flex-1 btn-action bg-amber-600 py-3 text-xs">10연 뽑기</button>
+                            </div>
+                        </div>
+                        <div class="bg-slate-950 p-6 rounded-2xl border border-blue-500/30">
+                            <h3 class="text-xs font-black text-blue-400 uppercase mb-4">🛍️ 상점</h3>
+                            <div id="portal-shop-list" class="max-h-40 overflow-y-auto custom-scrollbar pr-1"></div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-950 p-6 rounded-2xl border border-emerald-500/30">
+                        <h3 class="text-xs font-black text-emerald-400 uppercase mb-4">🪑 교실 부동산</h3>
+                        <div id="portal-seat-list" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+                    </div>
+                    <div class="bg-slate-950 p-6 rounded-2xl border border-purple-500/30">
+                        <h3 class="text-xs font-black text-purple-400 uppercase mb-4">🎫 내 쿠폰함</h3>
+                        <div id="portal-coupon-list" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2"></div>
                     </div>
                 </div>
             </div>
@@ -255,10 +360,52 @@
         </div>
     </div>
 
+    <!-- 관리자 설정 모달 -->
+    <div id="modal-admin-settings" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
+        <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-96 text-white">
+            <h2 class="text-xl font-black mb-6">관리자 설정</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase">관리자 비밀번호 변경</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="text" id="settings-new-pw" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2 text-white text-sm" placeholder="새 비밀번호">
+                        <button onclick="saveAdminPassword()" class="bg-blue-600 px-4 rounded-xl text-xs font-bold">저장</button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div>
+                        <p class="text-xs font-bold">자동 진행</p>
+                        <p class="text-[9px] text-slate-500">매일 09/13/17시, 브라우저가 열려있을 때 동작</p>
+                    </div>
+                    <input type="checkbox" id="settings-automode" onchange="toggleAutoMode(this.checked)" class="w-5 h-5">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase">가챠 가격 (1회 / 10회)</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="number" id="settings-gacha-single" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-white text-sm" placeholder="1회 가격">
+                        <input type="number" id="settings-gacha-ten" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-white text-sm" placeholder="10회 가격">
+                        <button onclick="saveGachaCost()" class="bg-blue-600 px-4 rounded-xl text-xs font-bold whitespace-nowrap">저장</button>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('modal-admin-settings').style.display='none'" class="w-full bg-slate-800 py-3 rounded-xl text-xs font-bold">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 가챠 연출 모달 -->
+    <div id="modal-gacha-reveal" class="modal-overlay">
+        <div class="bg-slate-950 border border-slate-800 rounded-3xl p-8 max-w-2xl w-full m-4 text-center relative">
+            <button onclick="closeGachaReveal()" class="absolute top-4 right-4 text-slate-500 hover:text-white text-2xl z-20">&times;</button>
+            <h2 class="text-lg font-black text-amber-400 mb-6">🎰 뽑기 결과</h2>
+            <div id="gacha-stage" class="relative min-h-[280px] flex items-center justify-center flex-wrap gap-4"></div>
+            <p id="gacha-pity-status" class="text-xs text-slate-500 mt-6 font-bold"></p>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, addDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, addDoc, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase 설정 ---
         const firebaseConfig = {
@@ -284,6 +431,9 @@
         let isAdmin = false;
         let chart = null;
         let deleteTargetId = null;
+        let shopItems = [];
+        let gachaPool = [];
+        let seats = [];
 
         function getInitStocks() {
             return [
@@ -318,6 +468,7 @@
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (s) => {
                 students = s.docs.map(d => ({ ...d.data(), id: d.id }));
                 renderRankings(); renderAdminStudents();
+                if (loggedInIdx !== null) { renderAssetOverview(); renderPortalCoupons(); renderGachaPityDisplay(); }
                 document.getElementById('loading-screen').style.display = 'none';
             });
 
@@ -325,9 +476,27 @@
                 orders = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => b.timestamp - a.timestamp);
                 renderOrderQueue();
             });
+
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shopItems'), (s) => {
+                shopItems = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (a.order||0) - (b.order||0));
+                renderShopAdmin();
+                if (loggedInIdx !== null) renderPortalShop();
+            });
+
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'gachaPool'), (s) => {
+                gachaPool = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (a.order||0) - (b.order||0));
+                renderGachaAdmin();
+            });
+
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'seats'), (s) => {
+                seats = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (a.order||0) - (b.order||0));
+                renderSeatAdmin();
+                if (loggedInIdx !== null) { renderPortalSeats(); renderAssetOverview(); }
+            });
         }
 
         async function initializeCloud() {
+            marketState = { currentDay: 1, dayPhase: 0, adminPassword: "5105", autoMode: false, lastAutoTrigger: "", lastSeatPayoutMonth: "", gachaCost: { single: 5, ten: 45 } };
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), marketState);
             const list = getInitStocks();
             for (const item of list) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', item.id), item); }
@@ -344,14 +513,14 @@
 
                 const b = writeBatch(db);
 
-                // 1. 시장 상태 리셋
-                marketState = { currentDay: 1, dayPhase: 0 };
+                // 1. 시장 상태 리셋 (관리자 비밀번호/가챠 가격 설정은 유지)
+                marketState = { ...marketState, currentDay: 1, dayPhase: 0, lastAutoTrigger: "", lastSeatPayoutMonth: "" };
                 b.set(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), marketState);
 
                 // 2. 주식 리셋
                 const list = getInitStocks();
-                for (const item of list) { 
-                    b.set(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', item.id), item); 
+                for (const item of list) {
+                    b.set(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', item.id), item);
                 }
 
                 // 3. 학생 데이터 모두 삭제 (데이터 없이 기능만 남기기 위함)
@@ -364,12 +533,15 @@
                     b.delete(doc(db, 'artifacts', appId, 'public', 'data', 'orders', o.id));
                 });
 
+                // 5. 좌석 소유권 전부 해제 (좌석 정의 자체는 유지)
+                seats.forEach(s => {
+                    b.update(doc(db, 'artifacts', appId, 'public', 'data', 'seats', s.id), { ownerId: null, ownerName: null });
+                });
+
                 await b.commit();
 
-                // 뉴스 초기화
                 document.getElementById('news-container').innerHTML = '';
-                addNews("🔄 시장이 1일차로 전면 초기화되었습니다. 학생을 새로 등록해주세요.", "good");
-                
+
                 showToast("시즌 초기화 완료.");
             } catch (err) {
                 console.error("Reset Error:", err);
@@ -380,25 +552,79 @@
             }
         };
 
-        window.handleTimeStep = async () => {
-            if (!isAdmin) return;
+        async function advancePhase() {
             const next = (marketState.dayPhase + 1) % 3;
             const state = { ...marketState, dayPhase: next };
             if (next === 1) { stocks.forEach(s => { s.basePrice = s.price; if(s.suspension > 0) s.suspension--; }); await applyMarket("오전"); }
             else if (next === 2) { await applyMarket("오후"); }
-            else { 
-                await processSettlement(); 
-                state.currentDay += 1; 
-                const b = writeBatch(db); 
-                students.forEach(s => b.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { lastOrderDay: -1 })); 
+            else {
+                await processSettlement();
+                state.currentDay += 1;
+                const b = writeBatch(db);
+                students.forEach(s => b.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { lastOrderDay: -1 }));
                 stocks.forEach(s => {
                     s.history.push(s.price); // 다음 날을 위한 새 그래프 포인트 생성
                     b.set(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', s.id), s);
                 });
-                await b.commit(); 
+                await b.commit();
             }
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), state);
+        }
+
+        window.handleTimeStep = async () => {
+            if (!isAdmin) return;
+            await advancePhase();
         };
+
+        // --- 자동 진행 스케줄러 (09:00 / 13:00 / 17:00, 브라우저가 열려있을 때 동작) ---
+        const AUTO_SLOTS = [
+            { hour: 9,  minute: 0, fromPhase: 0, key: '09' },
+            { hour: 13, minute: 0, fromPhase: 1, key: '13' },
+            { hour: 17, minute: 0, fromPhase: 2, key: '17' },
+        ];
+
+        function slotKeyFor(d, slot) {
+            const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+            return `${y}-${m}-${day}-${slot}`;
+        }
+
+        async function checkAutoSchedule() {
+            if (!marketState.autoMode) return;
+            const now = new Date();
+            for (const slot of AUTO_SLOTS) {
+                const triggerTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), slot.hour, slot.minute, 0);
+                if (now < triggerTime) continue;
+                const slotKey = slotKeyFor(now, slot.key);
+                if (marketState.lastAutoTrigger === slotKey) continue;
+                if (marketState.dayPhase !== slot.fromPhase) continue;
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { lastAutoTrigger: slotKey });
+                    marketState.lastAutoTrigger = slotKey;
+                } catch (e) { return; }
+                await advancePhase();
+                return; // 한 틱에 한 슬롯만 진행 (몰아서 넘어가는 것 방지)
+            }
+        }
+
+        async function checkSeatPayout() {
+            const now = new Date();
+            if (now.getDate() !== 1) return;
+            const monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+            if (marketState.lastSeatPayoutMonth === monthKey) return;
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { lastSeatPayoutMonth: monthKey });
+                marketState.lastSeatPayoutMonth = monthKey;
+            } catch (e) { return; }
+            const owned = seats.filter(s => s.ownerId);
+            for (const seat of owned) {
+                const std = students.find(x => x.id === seat.ownerId);
+                if (!std || !seat.monthlyIncome) continue;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: parseFloat((std.cash + seat.monthlyIncome).toFixed(1)) });
+            }
+            if (owned.length > 0) showToast(`🏠 부동산 패시브 수익 ${owned.length}건 지급 완료`);
+        }
+
+        setInterval(() => { checkAutoSchedule(); checkSeatPayout(); }, 60000);
 
         async function applyMarket(time) {
             const b = writeBatch(db);
@@ -486,6 +712,17 @@
             const stdDoc = doc(db, 'artifacts', appId, 'public', 'data', 'students', o.studentId);
             const snap = await getDoc(stdDoc); if (!snap.exists()) return;
             const s = snap.data();
+            if (o.type === 'redeem') {
+                const inv = [...(s.inventory || [])];
+                if (approved) {
+                    await updateDoc(stdDoc, { inventory: inv.filter(x => x.instanceId !== o.instanceId) });
+                } else {
+                    const idx = inv.findIndex(x => x.instanceId === o.instanceId);
+                    if (idx !== -1) { inv[idx] = { ...inv[idx], pendingOrderId: null }; await updateDoc(stdDoc, { inventory: inv }); }
+                }
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', id));
+                return;
+            }
             if (approved) {
                 if (o.type === 'multi') {
                     let cash = s.cash, h = { ...s.holdings } || {};
@@ -565,6 +802,7 @@
             cont.innerHTML = orders.map(o => {
                 let items = "";
                 if (o.type === 'multi') items = o.basket.map(i => `<div class="flex justify-between text-[9px] ${i.type==='buy'?'text-blue-400':'text-rose-400'} font-bold"><span>${i.type==='buy'?'매수':'매도'} ${i.stockId}</span><span>${i.qty}주</span></div>`).join('');
+                else if (o.type === 'redeem') items = `<div class="text-[10px] text-purple-400 font-bold">🎫 쿠폰 사용: ${o.couponName}</div>`;
                 else items = `<div class="text-[10px] ${o.type==='withdraw'?'text-amber-400':'text-emerald-400'} font-bold">${o.type==='withdraw'?'출금':'입금'}: ${o.qty}C</div>`;
                 return `<div class="order-card p-4 text-white"><div class="flex justify-between mb-2"><b>${o.studentName}</b><span class="text-[9px] opacity-50">${new Date(o.timestamp).toLocaleTimeString()}</span></div>${items}<div class="flex gap-2 mt-4"><button onclick="processOrder('${o.id}', true)" class="flex-1 bg-emerald-600 py-1 rounded text-[10px] font-bold text-white text-white text-white">승인</button><button onclick="processOrder('${o.id}', false)" class="flex-1 bg-rose-600 py-1 rounded text-[10px] font-bold text-white text-white text-white">거절</button></div></div>`;
             }).join('');
@@ -589,9 +827,121 @@
         function showToast(m) { const t = document.getElementById('game-toast'); t.innerText = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
 
         window.toggleAdminAuth = () => { if (isAdmin) { isAdmin = false; showToast("로그아웃"); updateUI(); } else document.getElementById('modal-admin-login').style.display = 'flex'; };
-        window.checkAdminPW = () => { if (document.getElementById('admin-pw-input').value === "5105") { isAdmin = true; document.getElementById('modal-admin-login').style.display = 'none'; updateUI(); } else showToast("비번 오류"); };
-        window.switchView = (v) => { document.getElementById('view-market').classList.toggle('hidden', v !== 'market'); document.getElementById('view-management').classList.toggle('hidden', v !== 'management'); document.getElementById('tab-market').classList.toggle('active', v === 'market'); document.getElementById('tab-management').classList.toggle('active', v === 'management'); };
-        window.addStudent = async () => { const n = document.getElementById('new-student-name').value.trim(); if (!n) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1 }); document.getElementById('new-student-name').value = ''; };
+        window.checkAdminPW = () => {
+            const correct = marketState.adminPassword || "5105";
+            if (document.getElementById('admin-pw-input').value === correct) { isAdmin = true; document.getElementById('modal-admin-login').style.display = 'none'; updateUI(); }
+            else showToast("비번 오류");
+        };
+
+        window.openAdminSettings = () => {
+            if (!isAdmin) return;
+            document.getElementById('settings-new-pw').value = '';
+            document.getElementById('settings-automode').checked = !!marketState.autoMode;
+            const gc = marketState.gachaCost || { single: 5, ten: 45 };
+            document.getElementById('settings-gacha-single').value = gc.single;
+            document.getElementById('settings-gacha-ten').value = gc.ten;
+            document.getElementById('modal-admin-settings').style.display = 'flex';
+        };
+        window.saveAdminPassword = async () => {
+            const pw = document.getElementById('settings-new-pw').value.trim();
+            if (!pw) return showToast("비밀번호를 입력하세요.");
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { adminPassword: pw });
+            document.getElementById('settings-new-pw').value = '';
+            showToast("비밀번호가 변경되었습니다.");
+        };
+        window.toggleAutoMode = async (checked) => {
+            if (!isAdmin) return;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { autoMode: checked });
+            showToast(checked ? "자동 진행이 켜졌습니다." : "자동 진행이 꺼졌습니다.");
+        };
+        window.saveGachaCost = async () => {
+            const single = parseFloat(document.getElementById('settings-gacha-single').value) || 0;
+            const ten = parseFloat(document.getElementById('settings-gacha-ten').value) || 0;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { gachaCost: { single, ten } });
+            showToast("가챠 가격이 저장되었습니다.");
+        };
+        window.switchView = (v) => {
+            document.getElementById('view-market').classList.toggle('hidden', v !== 'market');
+            document.getElementById('view-management').classList.toggle('hidden', v !== 'management');
+            document.getElementById('view-shopadmin').classList.toggle('hidden', v !== 'shopadmin');
+            document.getElementById('tab-market').classList.toggle('active', v === 'market');
+            document.getElementById('tab-management').classList.toggle('active', v === 'management');
+            document.getElementById('tab-shopadmin').classList.toggle('active', v === 'shopadmin');
+        };
+        window.switchShopAdminTab = (v) => {
+            ['shop','seat','gacha'].forEach(k => {
+                document.getElementById(`shopadmin-panel-${k}`).classList.toggle('hidden', k !== v);
+                document.getElementById(`shopadmin-tab-${k}`).classList.toggle('active', k === v);
+            });
+        };
+        window.switchPortalTab = (v) => {
+            document.getElementById('portal-view-trade').classList.toggle('hidden', v !== 'trade');
+            document.getElementById('portal-view-market').classList.toggle('hidden', v !== 'market');
+            document.getElementById('portal-tab-trade').classList.toggle('active', v === 'trade');
+            document.getElementById('portal-tab-market').classList.toggle('active', v === 'market');
+            if (v === 'market') { renderPortalShop(); renderPortalSeats(); renderPortalCoupons(); renderGachaPityDisplay(); }
+        };
+        window.addStudent = async () => { const n = document.getElementById('new-student-name').value.trim(); if (!n) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1, gachaPity: 0, inventory: [] }); document.getElementById('new-student-name').value = ''; };
+
+        // --- 상점 아이템 관리 (관리자) ---
+        window.addShopItem = async () => {
+            const name = document.getElementById('new-shop-name').value.trim();
+            const price = parseFloat(document.getElementById('new-shop-price').value);
+            const icon = document.getElementById('new-shop-icon').value.trim() || '🎁';
+            const description = document.getElementById('new-shop-desc').value.trim();
+            if (!name || !price) return showToast("이름과 가격을 입력하세요.");
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'shopItems'), { name, price, icon, description, order: shopItems.length });
+            document.getElementById('new-shop-name').value = ''; document.getElementById('new-shop-price').value = ''; document.getElementById('new-shop-icon').value = ''; document.getElementById('new-shop-desc').value = '';
+        };
+        window.deleteShopItem = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shopItems', id)); };
+        window.updateShopItemField = async (id, field, value) => {
+            const val = (field === 'price') ? (parseFloat(value) || 0) : value;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shopItems', id), { [field]: val });
+        };
+        function renderShopAdmin() {
+            const cont = document.getElementById('shopadmin-list');
+            if (!cont) return;
+            cont.innerHTML = shopItems.map(it => `<tr class="bg-slate-900/40 border border-slate-800 text-xs"><td class="p-2"><input value="${it.icon}" onchange="updateShopItemField('${it.id}','icon',this.value)" class="w-12 bg-transparent text-center"></td><td class="p-2"><input value="${it.name}" onchange="updateShopItemField('${it.id}','name',this.value)" class="bg-transparent w-full"></td><td class="p-2"><input type="number" value="${it.price}" onchange="updateShopItemField('${it.id}','price',this.value)" class="bg-transparent w-20 text-right"></td><td class="p-2"><input value="${it.description||''}" onchange="updateShopItemField('${it.id}','description',this.value)" class="bg-transparent w-full text-slate-400"></td><td class="p-2 text-center"><button onclick="deleteShopItem('${it.id}')" class="bg-rose-900/50 text-rose-400 px-2 py-1 rounded text-[10px]">삭제</button></td></tr>`).join('') || '<tr><td colspan="5" class="text-center text-slate-600 py-6 italic">등록된 상품이 없습니다.</td></tr>';
+        }
+
+        // --- 좌석(부동산) 관리 (관리자) ---
+        window.addSeat = async () => {
+            const name = document.getElementById('new-seat-name').value.trim();
+            const price = parseFloat(document.getElementById('new-seat-price').value);
+            const monthlyIncome = parseFloat(document.getElementById('new-seat-income').value) || 0;
+            if (!name || !price) return showToast("자리 이름과 가격을 입력하세요.");
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'seats'), { name, price, monthlyIncome, ownerId: null, ownerName: null, order: seats.length });
+            document.getElementById('new-seat-name').value = ''; document.getElementById('new-seat-price').value = ''; document.getElementById('new-seat-income').value = '';
+        };
+        window.deleteSeat = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id)); };
+        window.updateSeatField = async (id, field, value) => {
+            const val = (field === 'price' || field === 'monthlyIncome') ? (parseFloat(value) || 0) : value;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id), { [field]: val });
+        };
+        window.releaseSeat = async (id) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id), { ownerId: null, ownerName: null }); showToast("소유 해제됨"); };
+        function renderSeatAdmin() {
+            const cont = document.getElementById('seatadmin-list');
+            if (!cont) return;
+            cont.innerHTML = seats.map(s => `<tr class="bg-slate-900/40 border border-slate-800 text-xs"><td class="p-2"><input value="${s.name}" onchange="updateSeatField('${s.id}','name',this.value)" class="bg-transparent w-full"></td><td class="p-2"><input type="number" value="${s.price}" onchange="updateSeatField('${s.id}','price',this.value)" class="bg-transparent w-20 text-right"></td><td class="p-2"><input type="number" value="${s.monthlyIncome||0}" onchange="updateSeatField('${s.id}','monthlyIncome',this.value)" class="bg-transparent w-20 text-right"></td><td class="p-2 text-center">${s.ownerName ? `<span class="text-emerald-400 font-bold">${s.ownerName}</span> <button onclick="releaseSeat('${s.id}')" class="ml-1 text-[9px] text-rose-400 underline">해제</button>` : '<span class="text-slate-600">공석</span>'}</td><td class="p-2 text-center"><button onclick="deleteSeat('${s.id}')" class="bg-rose-900/50 text-rose-400 px-2 py-1 rounded text-[10px]">삭제</button></td></tr>`).join('') || '<tr><td colspan="5" class="text-center text-slate-600 py-6 italic">등록된 자리가 없습니다.</td></tr>';
+        }
+
+        // --- 가챠 풀 관리 (관리자) ---
+        window.addGachaItem = async () => {
+            const name = document.getElementById('new-gacha-name').value.trim();
+            const tier = document.getElementById('new-gacha-tier').value;
+            const icon = document.getElementById('new-gacha-icon').value.trim() || '🎫';
+            if (!name) return showToast("쿠폰 이름을 입력하세요.");
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'gachaPool'), { name, tier, icon, order: gachaPool.length });
+            document.getElementById('new-gacha-name').value = ''; document.getElementById('new-gacha-icon').value = '';
+        };
+        window.deleteGachaItem = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gachaPool', id)); };
+        window.updateGachaItemField = async (id, field, value) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gachaPool', id), { [field]: value }); };
+        function renderGachaAdmin() {
+            const cont = document.getElementById('gachaadmin-list');
+            if (!cont) return;
+            const tierLabel = { normal: '일반', rare: '레어', elite: '정예' };
+            cont.innerHTML = gachaPool.map(g => `<tr class="bg-slate-900/40 border border-slate-800 text-xs"><td class="p-2"><input value="${g.icon}" onchange="updateGachaItemField('${g.id}','icon',this.value)" class="w-12 bg-transparent text-center"></td><td class="p-2"><input value="${g.name}" onchange="updateGachaItemField('${g.id}','name',this.value)" class="bg-transparent w-full"></td><td class="p-2 text-center"><select onchange="updateGachaItemField('${g.id}','tier',this.value)" class="bg-slate-800 rounded px-1"><option value="normal" ${g.tier==='normal'?'selected':''}>일반</option><option value="rare" ${g.tier==='rare'?'selected':''}>레어</option><option value="elite" ${g.tier==='elite'?'selected':''}>정예</option></select></td><td class="p-2 text-center"><button onclick="deleteGachaItem('${g.id}')" class="bg-rose-900/50 text-rose-400 px-2 py-1 rounded text-[10px]">삭제</button></td></tr>`).join('') || '<tr><td colspan="4" class="text-center text-slate-600 py-6 italic">등록된 쿠폰이 없습니다.</td></tr>';
+        }
         window.openStudentLoginModal = () => { document.getElementById('std-login-name').value = ''; document.getElementById('std-login-pw').value = ''; document.getElementById('modal-student-login').style.display = 'flex'; };
         window.closePortal = () => { document.getElementById('modal-student-portal').style.display = 'none'; loggedInIdx = null; };
         window.loginStudent = () => {
@@ -609,6 +959,8 @@
             if (s.lastOrderDay === marketState.currentDay) { ls.innerText = "🚩 완료"; ls.className = "text-rose-500 font-bold"; sb.disabled = true; }
             else { ls.innerText = "🟢 가능"; ls.className = "text-emerald-400 font-bold"; sb.disabled = false; }
             basket = []; renderBasket(); renderInventory();
+            renderAssetOverview();
+            switchPortalTab('trade');
             document.getElementById('modal-student-portal').style.display = 'flex';
         };
         window.addToBasket = () => {
@@ -672,6 +1024,193 @@
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { studentId: std.id, studentName: std.name, type, qty, timestamp: Date.now() });
             document.getElementById('portal-bank-qty').value = ''; showToast("은행 신청 완료!");
         };
+
+        // --- 자산 개요 ---
+        function renderAssetOverview() {
+            const s = students[loggedInIdx];
+            const cont = document.getElementById('portal-asset-overview');
+            if (!s || !cont) return;
+            let stockValue = 0;
+            if (s.holdings) Object.keys(s.holdings).forEach(id => { const stk = stocks.find(x => x.id === id); if (stk) stockValue += s.holdings[id].qty * stk.price; });
+            const mySeat = seats.find(x => x.ownerId === s.id);
+            const couponCount = (s.inventory || []).filter(i => !i.pendingOrderId).length;
+            cont.innerHTML = `
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">현금</p><p class="text-sm font-mono font-black text-emerald-400">${s.cash.toFixed(1)} C</p></div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">주식 평가액</p><p class="text-sm font-mono font-black text-blue-400">${stockValue.toFixed(1)} C</p></div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">내 자리</p><p class="text-sm font-black text-amber-400">${mySeat ? mySeat.name : '없음'}</p></div>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center"><p class="text-[9px] text-slate-500 font-bold uppercase">보유 쿠폰</p><p class="text-sm font-black text-purple-400">${couponCount}개</p></div>
+            `;
+        }
+
+        // --- 상점 (즉시 구매) ---
+        function renderPortalShop() {
+            const cont = document.getElementById('portal-shop-list');
+            if (!cont) return;
+            if (shopItems.length === 0) { cont.innerHTML = '<p class="text-center text-slate-600 text-xs py-6 italic">등록된 상품이 없습니다.</p>'; return; }
+            cont.innerHTML = shopItems.map(it => `<div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl mb-2"><div><p class="text-xs font-bold">${it.icon} ${it.name}</p><p class="text-[10px] text-slate-500">${it.description||''}</p></div><button onclick="buyShopItem('${it.id}')" class="bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap">${it.price}C 구매</button></div>`).join('');
+        }
+        window.buyShopItem = async (id) => {
+            const std = students[loggedInIdx];
+            const item = shopItems.find(x => x.id === id);
+            if (!std || !item) return;
+            if (std.cash < item.price) return showToast("현금이 부족합니다.");
+            const inv = [...(std.inventory || []), { instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item.name, icon: item.icon, source: 'shop', obtainedAt: Date.now() }];
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: parseFloat((std.cash - item.price).toFixed(1)), inventory: inv });
+            showToast(`${item.name} 구매 완료!`);
+        };
+
+        // --- 좌석(부동산) 구매 (동시 구매 방지를 위해 트랜잭션 사용) ---
+        function renderPortalSeats() {
+            const cont = document.getElementById('portal-seat-list');
+            const std = students[loggedInIdx];
+            if (!cont || !std) return;
+            if (seats.length === 0) { cont.innerHTML = '<p class="col-span-full text-center text-slate-600 text-xs py-6 italic">등록된 자리가 없습니다.</p>'; return; }
+            cont.innerHTML = seats.map(s => {
+                const mine = s.ownerId === std.id;
+                const taken = !!s.ownerId;
+                return `<div class="bg-slate-900/50 p-3 rounded-xl border ${mine ? 'border-emerald-500' : 'border-slate-800'} text-center"><p class="text-xs font-bold">${s.name}</p><p class="text-[10px] text-slate-500 font-mono">${s.price}C · 월 ${s.monthlyIncome||0}C</p>${mine ? '<p class="text-[10px] text-emerald-400 font-bold mt-1">내 자리</p>' : taken ? `<p class="text-[10px] text-slate-600 mt-1">${s.ownerName} 소유</p>` : `<button onclick="buySeat('${s.id}')" class="mt-1 bg-emerald-600 px-2 py-1 rounded text-[10px] font-bold">구매</button>`}</div>`;
+            }).join('');
+        }
+        window.buySeat = async (id) => {
+            const std = students[loggedInIdx];
+            const seat = seats.find(x => x.id === id);
+            if (!std || !seat) return;
+            if (std.cash < seat.price) return showToast("현금이 부족합니다.");
+            try {
+                await runTransaction(db, async (tx) => {
+                    const seatRef = doc(db, 'artifacts', appId, 'public', 'data', 'seats', id);
+                    const seatSnap = await tx.get(seatRef);
+                    if (!seatSnap.exists() || seatSnap.data().ownerId) throw new Error('TAKEN');
+                    const stdRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id);
+                    const stdSnap = await tx.get(stdRef);
+                    const curCash = stdSnap.data().cash;
+                    if (curCash < seat.price) throw new Error('POOR');
+                    tx.update(seatRef, { ownerId: std.id, ownerName: std.name, purchasedAt: Date.now() });
+                    tx.update(stdRef, { cash: parseFloat((curCash - seat.price).toFixed(1)) });
+                });
+                showToast(`${seat.name} 구매 완료!`);
+            } catch (e) {
+                if (e.message === 'TAKEN') showToast("이미 판매된 자리입니다.");
+                else if (e.message === 'POOR') showToast("현금이 부족합니다.");
+                else showToast("구매 중 오류가 발생했습니다.");
+            }
+        };
+
+        // --- 쿠폰 인벤토리 / 사용 신청 ---
+        function renderPortalCoupons() {
+            const cont = document.getElementById('portal-coupon-list');
+            const std = students[loggedInIdx];
+            if (!cont || !std) return;
+            const inv = std.inventory || [];
+            if (inv.length === 0) { cont.innerHTML = '<p class="text-center text-slate-600 text-xs py-6 italic">보유 중인 쿠폰이 없습니다.</p>'; return; }
+            const tierClass = { elite: 'tier-elite', rare: 'tier-rare', normal: 'tier-normal' };
+            cont.innerHTML = inv.map(it => `<div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl"><span class="text-xs font-bold ${tierClass[it.tier]||''}">${it.icon} ${it.name}</span>${it.pendingOrderId ? '<span class="text-[10px] text-amber-400 font-bold">승인 대기중</span>' : `<button onclick="requestRedeem('${it.instanceId}')" class="bg-purple-600 px-3 py-1 rounded-lg text-[10px] font-bold">사용 신청</button>`}</div>`).join('');
+        }
+        window.requestRedeem = async (instanceId) => {
+            const std = students[loggedInIdx];
+            if (!std) return;
+            const inv = [...(std.inventory || [])];
+            const idx = inv.findIndex(x => x.instanceId === instanceId);
+            if (idx === -1) return;
+            const orderRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { studentId: std.id, studentName: std.name, type: 'redeem', instanceId, couponName: inv[idx].name, timestamp: Date.now() });
+            inv[idx] = { ...inv[idx], pendingOrderId: orderRef.id };
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { inventory: inv });
+            showToast("사용 신청 완료! 관리자 승인을 기다려주세요.");
+        };
+
+        function renderGachaPityDisplay() {
+            const el = document.getElementById('gacha-pity-display');
+            const std = students[loggedInIdx];
+            if (!el || !std) return;
+            const pity = std.gachaPity || 0;
+            el.innerText = `천장 ${pity}/70`;
+        }
+
+        // --- 가챠 확률 엔진 (하드천장 70 / 소프트천장 40~69 / 10연 레어이상 보장) ---
+        function eliteChance(pity) {
+            if (pity >= 70) return 1;
+            if (pity < 40) return 0.05;
+            const t = (pity - 40) / (70 - 40);
+            return 0.05 + t * 0.90;
+        }
+        function rollOne(pity) {
+            const eliteP = eliteChance(pity);
+            const r = Math.random();
+            if (r < eliteP) return 'elite';
+            if (r < eliteP + 0.25) return 'rare';
+            return 'normal';
+        }
+        function pickFromPool(tier) {
+            const pool = gachaPool.filter(g => g.tier === tier);
+            if (pool.length === 0) return null;
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+        function runGachaRolls(count, startPity) {
+            let pity = startPity;
+            const results = [];
+            for (let i = 0; i < count; i++) {
+                const tier = rollOne(pity);
+                pity = (tier === 'elite') ? 0 : pity + 1;
+                results.push(tier);
+            }
+            if (count >= 10 && !results.some(t => t === 'elite' || t === 'rare')) {
+                results[results.length - 1] = 'rare';
+            }
+            return { results, endPity: pity };
+        }
+        window.pullGacha = async (count) => {
+            const std = students[loggedInIdx];
+            if (!std) return;
+            if (gachaPool.length === 0) return showToast("가챠 풀이 비어있습니다. 관리자에게 문의하세요.");
+            const cost = marketState.gachaCost || { single: 5, ten: 45 };
+            const price = count === 10 ? cost.ten : cost.single * count;
+            if (std.cash < price) return showToast("골드가 부족합니다.");
+            const startPity = std.gachaPity || 0;
+            const { results, endPity } = runGachaRolls(count, startPity);
+            const drawn = results.map(tier => {
+                const item = pickFromPool(tier) || pickFromPool('normal') || pickFromPool('rare') || pickFromPool('elite');
+                return { instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item?.name || '???', icon: item?.icon || '🎁', tier, source: 'gacha', obtainedAt: Date.now() };
+            });
+            const newCash = parseFloat((std.cash - price).toFixed(1));
+            const inv = [...(std.inventory || []), ...drawn];
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: newCash, gachaPity: endPity, inventory: inv });
+            playGachaAnimation(drawn, endPity);
+        };
+
+        // --- 가챠 연출 ---
+        function tierMeta(tier) {
+            if (tier === 'elite') return { color: '#fbbf24', label: '정예', glow: 'rgba(251,191,36,0.6)' };
+            if (tier === 'rare') return { color: '#a855f7', label: '레어', glow: 'rgba(168,85,247,0.6)' };
+            return { color: '#3b82f6', label: '일반', glow: 'rgba(59,130,246,0.4)' };
+        }
+        window.closeGachaReveal = () => { document.getElementById('modal-gacha-reveal').style.display = 'none'; };
+        function playGachaAnimation(drawn, endPity) {
+            const stage = document.getElementById('gacha-stage');
+            const modal = document.getElementById('modal-gacha-reveal');
+            document.getElementById('gacha-pity-status').innerText = `천장까지 ${70 - endPity}회 남음 (현재 ${endPity}/70)`;
+            stage.innerHTML = '';
+            modal.style.display = 'flex';
+
+            const bestTier = drawn.some(d => d.tier === 'elite') ? 'elite' : drawn.some(d => d.tier === 'rare') ? 'rare' : 'normal';
+            const beam = document.createElement('div');
+            beam.className = 'gacha-beam';
+            beam.style.setProperty('--beam-color', tierMeta(bestTier).color);
+            stage.appendChild(beam);
+
+            setTimeout(() => {
+                stage.innerHTML = '';
+                drawn.forEach((item, i) => {
+                    const meta = tierMeta(item.tier);
+                    const card = document.createElement('div');
+                    card.className = 'gacha-card';
+                    card.style.setProperty('--tier-color', meta.color);
+                    card.style.setProperty('--tier-glow', meta.glow);
+                    card.style.animationDelay = `${i * 0.15}s`;
+                    card.innerHTML = `<div class="gacha-card-inner"><span class="text-3xl">${item.icon}</span><p class="text-[10px] font-black mt-1">${item.name}</p><span class="phase-badge mt-1" style="background:${meta.color}">${meta.label}</span></div>`;
+                    stage.appendChild(card);
+                });
+            }, 1600);
+        }
 
         startApp();
     </script>
