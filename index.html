@@ -193,13 +193,13 @@
                 </div>
 
                 <div id="shopadmin-panel-gacha" class="hidden">
+                    <p class="text-[10px] text-slate-500 mb-3">일반 등급은 더 이상 개별 아이템이 아니라 "스택"으로만 적립됩니다 (30스택=뽑기권 1개). 레어는 10조각을 모아야 사용 신청할 수 있고, 정예는 즉시 지급됩니다.</p>
                     <div class="flex flex-wrap gap-2 mb-4 bg-slate-900/50 p-4 rounded-xl">
                         <input type="text" id="new-gacha-icon" class="w-14 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-center" placeholder="🎫">
                         <input type="text" id="new-gacha-name" class="flex-1 min-w-[120px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs" placeholder="쿠폰 이름">
                         <select id="new-gacha-tier" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
-                            <option value="normal">일반</option>
-                            <option value="rare">레어</option>
-                            <option value="elite">정예</option>
+                            <option value="rare">레어 (10조각)</option>
+                            <option value="elite">정예 (즉시지급)</option>
                         </select>
                         <button onclick="addGachaItem()" class="bg-amber-600 px-4 py-1.5 rounded-lg text-xs font-bold">추가</button>
                     </div>
@@ -294,8 +294,9 @@
                                 <span>🎰 가챠</span>
                                 <span id="gacha-pity-display" class="text-[10px] text-slate-500 font-mono"></span>
                             </h3>
-                            <p class="text-[10px] text-slate-500 mb-2">70회 천장 시 정예 쿠폰 확정 지급 · 10연은 레어 이상 1개 보장</p>
-                            <p class="text-[11px] text-purple-400 font-bold mb-4">🎫 보유 뽑기권 <span id="gacha-ticket-display">0</span>장 <span class="text-slate-600 font-normal">(부족분은 골드로 자동 결제)</span></p>
+                            <p class="text-[10px] text-slate-500 mb-2">70회 천장 시 정예 확정 · 10연은 레어 이상 1개 보장 · 레어는 조각, 일반은 스택으로 적립</p>
+                            <p class="text-[11px] text-purple-400 font-bold mb-1">🎫 보유 뽑기권 <span id="gacha-ticket-display">0</span>장 <span class="text-slate-600 font-normal">(부족분은 골드로 자동 결제)</span></p>
+                            <p class="text-[11px] text-amber-300 font-bold mb-4">⭐ 보유 스택 <span id="gacha-stack-display">0</span>개 <button onclick="exchangeStackForTicket()" class="ml-1 bg-slate-800 px-2 py-0.5 rounded text-[9px] font-bold hover:bg-slate-700">30개→뽑기권 교환</button></p>
                             <div class="flex gap-2">
                                 <button onclick="pullGacha(1)" class="flex-1 btn-action bg-blue-600 py-3 text-xs">1회 뽑기</button>
                                 <button onclick="pullGacha(10)" class="flex-1 btn-action bg-amber-600 py-3 text-xs">10연 뽑기</button>
@@ -309,6 +310,10 @@
                     <div class="bg-slate-950 p-6 rounded-2xl border border-emerald-500/30">
                         <h3 class="text-xs font-black text-emerald-400 uppercase mb-4">🪑 교실 부동산</h3>
                         <div id="portal-seat-list" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+                    </div>
+                    <div class="bg-slate-950 p-6 rounded-2xl border border-fuchsia-500/30">
+                        <h3 class="text-xs font-black text-fuchsia-400 uppercase mb-4">🧩 조각함 (10개 모으면 사용 신청)</h3>
+                        <div id="portal-fragment-list" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2"></div>
                     </div>
                     <div class="bg-slate-950 p-6 rounded-2xl border border-purple-500/30">
                         <h3 class="text-xs font-black text-purple-400 uppercase mb-4">🎫 내 쿠폰함</h3>
@@ -470,7 +475,7 @@
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (s) => {
                 students = s.docs.map(d => ({ ...d.data(), id: d.id }));
                 renderRankings(); renderAdminStudents();
-                if (loggedInIdx !== null) { renderAssetOverview(); renderPortalCoupons(); renderGachaPityDisplay(); }
+                if (loggedInIdx !== null) { renderAssetOverview(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); }
                 document.getElementById('loading-screen').style.display = 'none';
             });
 
@@ -726,6 +731,15 @@
             const stdDoc = doc(db, 'artifacts', appId, 'public', 'data', 'students', o.studentId);
             const snap = await getDoc(stdDoc); if (!snap.exists()) return;
             const s = snap.data();
+            if (o.type === 'redeem' && o.redeemKind === 'fragment') {
+                if (!approved) {
+                    const frags = { ...(s.fragments || {}) };
+                    frags[o.poolItemId] = (frags[o.poolItemId] || 0) + 10;
+                    await updateDoc(stdDoc, { fragments: frags });
+                }
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', id));
+                return;
+            }
             if (o.type === 'redeem') {
                 const inv = [...(s.inventory || [])];
                 if (approved) {
@@ -816,7 +830,7 @@
             cont.innerHTML = orders.map(o => {
                 let items = "";
                 if (o.type === 'multi') items = o.basket.map(i => `<div class="flex justify-between text-[9px] ${i.type==='buy'?'text-blue-400':'text-rose-400'} font-bold"><span>${i.type==='buy'?'매수':'매도'} ${i.stockId}</span><span>${i.qty}주</span></div>`).join('');
-                else if (o.type === 'redeem') items = `<div class="text-[10px] text-purple-400 font-bold">🎫 쿠폰 사용: ${o.couponName}</div>`;
+                else if (o.type === 'redeem') items = `<div class="text-[10px] text-purple-400 font-bold">${o.redeemKind === 'fragment' ? '🧩' : '🎫'} 쿠폰 사용: ${o.couponName}</div>`;
                 else items = `<div class="text-[10px] ${o.type==='withdraw'?'text-amber-400':'text-emerald-400'} font-bold">${o.type==='withdraw'?'출금':'입금'}: ${o.qty}C</div>`;
                 return `<div class="order-card p-4 text-white"><div class="flex justify-between mb-2"><b>${o.studentName}</b><span class="text-[9px] opacity-50">${new Date(o.timestamp).toLocaleTimeString()}</span></div>${items}<div class="flex gap-2 mt-4"><button onclick="processOrder('${o.id}', true)" class="flex-1 bg-emerald-600 py-1 rounded text-[10px] font-bold text-white text-white text-white">승인</button><button onclick="processOrder('${o.id}', false)" class="flex-1 bg-rose-600 py-1 rounded text-[10px] font-bold text-white text-white text-white">거절</button></div></div>`;
             }).join('');
@@ -893,9 +907,9 @@
             document.getElementById('portal-view-market').classList.toggle('hidden', v !== 'market');
             document.getElementById('portal-tab-trade').classList.toggle('active', v === 'trade');
             document.getElementById('portal-tab-market').classList.toggle('active', v === 'market');
-            if (v === 'market') { renderPortalShop(); renderPortalSeats(); renderPortalCoupons(); renderGachaPityDisplay(); }
+            if (v === 'market') { renderPortalShop(); renderPortalSeats(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); }
         };
-        window.addStudent = async () => { const n = document.getElementById('new-student-name').value.trim(); if (!n) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1, gachaPity: 0, inventory: [], ticketCount: 0 }); document.getElementById('new-student-name').value = ''; };
+        window.addStudent = async () => { const n = document.getElementById('new-student-name').value.trim(); if (!n) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1, gachaPity: 0, inventory: [], ticketCount: 0, normalStack: 0, fragments: {} }); document.getElementById('new-student-name').value = ''; };
 
         // --- 상점 아이템 관리 (관리자) ---
         window.addShopItem = async () => {
@@ -1135,25 +1149,63 @@
         function renderGachaPityDisplay() {
             const el = document.getElementById('gacha-pity-display');
             const ticketEl = document.getElementById('gacha-ticket-display');
+            const stackEl = document.getElementById('gacha-stack-display');
             const std = students[loggedInIdx];
             if (!std) return;
             const pity = std.gachaPity || 0;
             if (el) el.innerText = `천장 ${pity}/70`;
             if (ticketEl) ticketEl.innerText = std.ticketCount || 0;
+            if (stackEl) stackEl.innerText = std.normalStack || 0;
         }
+        window.exchangeStackForTicket = async () => {
+            const std = students[loggedInIdx];
+            if (!std) return;
+            const stack = std.normalStack || 0;
+            const sets = Math.floor(stack / 30);
+            if (sets <= 0) return showToast("스택이 30개 미만입니다.");
+            const newStack = stack - sets * 30;
+            const newTickets = (std.ticketCount || 0) + sets;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { normalStack: newStack, ticketCount: newTickets });
+            showToast(`🎫 뽑기권 ${sets}장으로 교환 완료!`);
+        };
+        function renderPortalFragments() {
+            const cont = document.getElementById('portal-fragment-list');
+            const std = students[loggedInIdx];
+            if (!cont || !std) return;
+            const frags = std.fragments || {};
+            const entries = Object.keys(frags).filter(id => frags[id] > 0).map(id => {
+                const item = gachaPool.find(g => g.id === id);
+                return { id, count: frags[id], name: item?.name || '(삭제된 아이템)', icon: item?.icon || '🧩' };
+            });
+            if (entries.length === 0) { cont.innerHTML = '<p class="text-center text-slate-600 text-xs py-4 italic">모은 조각이 없습니다.</p>'; return; }
+            cont.innerHTML = entries.map(e => `<div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl"><span class="text-xs font-bold tier-rare">${e.icon} ${e.name} (${e.count}/10)</span>${e.count >= 10 ? `<button onclick="requestFragmentRedeem('${e.id}')" class="bg-fuchsia-600 px-3 py-1 rounded-lg text-[10px] font-bold">사용 신청</button>` : `<span class="text-[10px] text-slate-600">조각 부족</span>`}</div>`).join('');
+        }
+        window.requestFragmentRedeem = async (poolItemId) => {
+            const std = students[loggedInIdx];
+            if (!std) return;
+            const frags = { ...(std.fragments || {}) };
+            if ((frags[poolItemId] || 0) < 10) return showToast("조각이 부족합니다.");
+            const item = gachaPool.find(g => g.id === poolItemId);
+            frags[poolItemId] -= 10;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { fragments: frags });
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { studentId: std.id, studentName: std.name, type: 'redeem', redeemKind: 'fragment', poolItemId, couponName: item?.name || '조각 아이템', timestamp: Date.now() });
+            showToast("사용 신청 완료! 관리자 승인을 기다려주세요.");
+        };
 
         // --- 가챠 확률 엔진 (하드천장 70 / 소프트천장 40~69 / 10연 레어이상 보장) ---
+        const GACHA_RARE_RATE = 0.06;
+        const GACHA_ELITE_BASE = 0.006;
         function eliteChance(pity) {
             if (pity >= 70) return 1;
-            if (pity < 40) return 0.05;
-            const t = (pity - 40) / (70 - 40);
-            return 0.05 + t * 0.90;
+            if (pity < 50) return GACHA_ELITE_BASE;
+            const step = Math.floor((pity - 50) / 10) + 1; // 50~59:+4%, 60~69:+8%
+            return Math.min(GACHA_ELITE_BASE + step * 0.04, 0.999);
         }
         function rollOne(pity) {
             const eliteP = eliteChance(pity);
             const r = Math.random();
             if (r < eliteP) return 'elite';
-            if (r < eliteP + 0.25) return 'rare';
+            if (r < eliteP + GACHA_RARE_RATE) return 'rare';
             return 'normal';
         }
         function pickFromPool(tier) {
@@ -1169,32 +1221,61 @@
                 pity = (tier === 'elite') ? 0 : pity + 1;
                 results.push(tier);
             }
+            // 10연 레어 이상 미보장 시, 마지막 슬롯을 레어 99.4% / 정예 0.6%로 강제 승급
             if (count >= 10 && !results.some(t => t === 'elite' || t === 'rare')) {
-                results[results.length - 1] = 'rare';
+                const forced = Math.random() < 0.006 ? 'elite' : 'rare';
+                results[results.length - 1] = forced;
+                if (forced === 'elite') pity = 0;
             }
             return { results, endPity: pity };
         }
         window.pullGacha = async (count) => {
             const std = students[loggedInIdx];
             if (!std) return;
-            if (gachaPool.length === 0) return showToast("가챠 풀이 비어있습니다. 관리자에게 문의하세요.");
+            const hasRare = gachaPool.some(g => g.tier === 'rare');
+            const hasElite = gachaPool.some(g => g.tier === 'elite');
+            if (!hasRare || !hasElite) return showToast("가챠 풀(레어/정예)이 비어있습니다. 관리자에게 문의하세요.");
             const cost = marketState.gachaCost || { single: 5, ten: 45 };
             const ticketsAvailable = std.ticketCount || 0;
             const ticketsUsed = Math.min(count, ticketsAvailable);
             const remaining = count - ticketsUsed;
             const goldCost = remaining === 0 ? 0 : (ticketsUsed === 0 && count === 10 ? cost.ten : remaining * cost.single);
             if (std.cash < goldCost) return showToast("골드가 부족합니다.");
+
             const startPity = std.gachaPity || 0;
             const { results, endPity } = runGachaRolls(count, startPity);
-            const drawn = results.map(tier => {
-                const item = pickFromPool(tier) || pickFromPool('normal') || pickFromPool('rare') || pickFromPool('elite');
-                return { instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item?.name || '???', icon: item?.icon || '🎁', tier, source: 'gacha', obtainedAt: Date.now() };
+
+            let newStack = std.normalStack || 0;
+            const newFragments = { ...(std.fragments || {}) };
+            const newInventory = [...(std.inventory || [])];
+            const display = [];
+
+            results.forEach(tier => {
+                if (tier === 'normal') {
+                    newStack += 1;
+                    display.push({ tier, icon: '⭐', name: '스택 +1' });
+                } else if (tier === 'rare') {
+                    const item = pickFromPool('rare');
+                    if (item) {
+                        newFragments[item.id] = (newFragments[item.id] || 0) + 1;
+                        display.push({ tier, icon: item.icon, name: `${item.name} 조각 (${newFragments[item.id]}/10)` });
+                    }
+                } else {
+                    const item = pickFromPool('elite');
+                    if (item) {
+                        newInventory.push({ instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item.name, icon: item.icon, tier: 'elite', source: 'gacha', obtainedAt: Date.now() });
+                        display.push({ tier, icon: item.icon, name: item.name });
+                    }
+                }
             });
+
             const newCash = parseFloat((std.cash - goldCost).toFixed(1));
             const newTickets = ticketsAvailable - ticketsUsed;
-            const inv = [...(std.inventory || []), ...drawn];
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: newCash, gachaPity: endPity, inventory: inv, ticketCount: newTickets });
-            playGachaAnimation(drawn, endPity);
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), {
+                cash: newCash, gachaPity: endPity, inventory: newInventory,
+                ticketCount: newTickets, normalStack: newStack, fragments: newFragments
+            });
+            playGachaAnimation(display, endPity);
             if (ticketsUsed > 0 && goldCost > 0) showToast(`🎫 뽑기권 ${ticketsUsed}장 + ${goldCost}C 사용`);
             else if (ticketsUsed > 0) showToast(`🎫 뽑기권 ${ticketsUsed}장 사용`);
         };
