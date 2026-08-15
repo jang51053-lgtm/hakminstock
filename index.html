@@ -111,7 +111,7 @@
                 </div>
                 <div class="fantasy-card p-6 border-blue-500/30">
                     <h2 class="text-sm font-black text-blue-400 uppercase tracking-widest mb-4">📜 시장 크로니클</h2>
-                    <div id="news-container" class="h-32 overflow-y-auto space-y-2 text-xs custom-scrollbar"></div>
+                    <div id="news-container" class="h-56 overflow-y-auto space-y-2 text-xs custom-scrollbar"></div>
                 </div>
             </div>
         </div>
@@ -368,6 +368,23 @@
         </div>
     </div>
 
+    <!-- 종목 정보 모달 -->
+    <div id="modal-stock-info" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
+        <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-80 text-white">
+            <h2 id="stockinfo-title" class="text-lg font-black mb-3">종목명</h2>
+            <p id="stockinfo-desc" class="text-xs text-slate-400 leading-relaxed mb-4"></p>
+            <div class="flex justify-between text-xs bg-slate-950 p-3 rounded-xl border border-slate-800 mb-2">
+                <span class="text-slate-500 font-bold">변동성</span>
+                <span id="stockinfo-vol"></span>
+            </div>
+            <div class="flex justify-between text-xs bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4">
+                <span class="text-slate-500 font-bold">배당 여부</span>
+                <span id="stockinfo-div"></span>
+            </div>
+            <button onclick="document.getElementById('modal-stock-info').style.display='none'" class="w-full bg-slate-800 py-3 rounded-xl text-xs font-bold">닫기</button>
+        </div>
+    </div>
+
     <!-- 관리자 설정 모달 -->
     <div id="modal-admin-settings" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
         <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-96 text-white">
@@ -442,17 +459,18 @@
         let shopItems = [];
         let gachaPool = [];
         let seats = [];
+        let newsItems = [];
 
         function getInitStocks() {
             return [
-                { id: 'GP', name: '고블린 포션', icon: '🧪', price: 10.0, basePrice: 10.0, history: [10.0], vol: 0.1, suspension: 0, order: 0 },
-                { id: 'DA', name: '드래곤 항공', icon: '🐉', price: 25.0, basePrice: 25.0, history: [25.0], vol: 0.2, suspension: 0, order: 1 },
-                { id: 'SF', name: '슬라임 푸드', icon: '🍮', price: 5.0, basePrice: 5.0, history: [5.0], vol: 0.25, suspension: 0, div: true, order: 2 },
-                { id: 'HW', name: '호두와트 지팡이', icon: '🪄', price: 8.0, basePrice: 8.0, history: [8.0], vol: 0.12, suspension: 0, order: 3 },
-                { id: 'HA', name: '용사 협회', icon: '⚔️', price: 15.0, basePrice: 15.0, history: [15.0], vol: 0.15, suspension: 0, div: true, order: 4 },
-                { id: 'GC', name: '골렘 건설', icon: '🧱', price: 12.0, basePrice: 12.0, history: [12.0], vol: 0.08, suspension: 0, order: 5 },
-                { id: 'EH', name: '엘프 힐링', icon: '🍃', price: 40.0, basePrice: 40.0, history: [40.0], vol: 0.1, suspension: 0, order: 6 },
-                { id: 'MM', name: '미믹 마켓', icon: '🎁', price: 3.0, basePrice: 3.0, history: [3.0], vol: 0.35, suspension: 0, div: true, order: 7 }
+                { id: 'GP', name: '고블린포션화학', icon: '🧪', price: 10.0, basePrice: 10.0, history: [10.0], vol: 0.18, suspension: 0, order: 0, desc: '신소재 포션을 개발하는 화학 기업. 기술주 성격이 강해 성장 기대감에 따라 주가가 크게 출렁이는 편.' },
+                { id: 'DA', name: '대한드래곤항공', icon: '✈️', price: 25.0, basePrice: 25.0, history: [25.0], vol: 0.2, suspension: 0, order: 1, desc: '하늘을 나는 드래곤 수송 서비스 기업. 여행 수요와 연료비에 따라 등락이 큰 편.' },
+                { id: 'SF', name: '슬라E마트', icon: '🛒', price: 5.0, basePrice: 5.0, history: [5.0], vol: 0.08, suspension: 0, div: true, order: 2, desc: '생활용품을 파는 대형 마트 체인. 꾸준한 수요 덕분에 주가가 안정적이고 배당을 지급.' },
+                { id: 'HW', name: '삼성지팡이', icon: '📱', price: 8.0, basePrice: 8.0, history: [8.0], vol: 0.2, suspension: 0, order: 3, desc: '최첨단 마법 지팡이를 만드는 기술 기업. 신제품 소식에 주가가 크게 움직이는 편.' },
+                { id: 'HA', name: '한국용사전력공사', icon: '⚡', price: 15.0, basePrice: 15.0, history: [15.0], vol: 0.05, suspension: 0, div: true, order: 4, desc: '왕국의 전력을 책임지는 공공기관. 매우 안정적이고 배당을 지급.' },
+                { id: 'GC', name: '현대골렘', icon: '🏗️', price: 12.0, basePrice: 12.0, history: [12.0], vol: 0.14, suspension: 0, order: 5, desc: '골렘을 이용해 건물을 짓는 건설 기업. 경기와 수주 상황에 따라 등락이 있는 편.' },
+                { id: 'EH', name: '엘프릭스', icon: '💊', price: 40.0, basePrice: 40.0, history: [40.0], vol: 0.12, suspension: 0, order: 6, desc: '치유 마법을 서비스하는 헬스케어 기업. 비교적 완만한 변동을 보이는 편.' },
+                { id: 'MM', name: '미믹은행', icon: '🏦', price: 3.0, basePrice: 3.0, history: [3.0], vol: 0.1, suspension: 0, div: true, order: 7, desc: '예금과 대출을 취급하는 은행. 비교적 안정적이고 배당을 지급.' }
             ];
         }
 
@@ -501,10 +519,15 @@
                 renderSeatAdmin();
                 if (loggedInIdx !== null) { renderPortalSeats(); renderAssetOverview(); }
             });
+
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (s) => {
+                newsItems = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => b.timestamp - a.timestamp).slice(0, 60);
+                renderNews();
+            });
         }
 
         async function initializeCloud() {
-            marketState = { currentDay: 1, dayPhase: 0, adminPassword: "5105", autoMode: false, lastAutoTrigger: "", lastSeatPayoutAt: 0, gachaCost: { single: 5, ten: 45 } };
+            marketState = { currentDay: 1, dayPhase: 0, adminPassword: "5105", autoMode: false, lastAutoTrigger: "", lastSeatPayoutAt: 0, gachaCost: { single: 5, ten: 45 }, pendingRumor: null };
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), marketState);
             const list = getInitStocks();
             for (const item of list) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', item.id), item); }
@@ -522,7 +545,7 @@
                 const b = writeBatch(db);
 
                 // 1. 시장 상태 리셋 (관리자 비밀번호/가챠 가격 설정은 유지)
-                marketState = { ...marketState, currentDay: 1, dayPhase: 0, lastAutoTrigger: "", lastSeatPayoutAt: 0 };
+                marketState = { ...marketState, currentDay: 1, dayPhase: 0, lastAutoTrigger: "", lastSeatPayoutAt: 0, pendingRumor: null };
                 b.set(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), marketState);
 
                 // 2. 주식 리셋
@@ -546,6 +569,11 @@
                     b.update(doc(db, 'artifacts', appId, 'public', 'data', 'seats', s.id), { ownerId: null, ownerName: null });
                 });
 
+                // 6. 뉴스 피드 전체 삭제
+                newsItems.forEach(n => {
+                    b.delete(doc(db, 'artifacts', appId, 'public', 'data', 'news', n.id));
+                });
+
                 await b.commit();
 
                 document.getElementById('news-container').innerHTML = '';
@@ -562,12 +590,25 @@
 
         async function advancePhase() {
             const next = (marketState.dayPhase + 1) % 3;
-            const state = { ...marketState, dayPhase: next };
-            if (next === 1) { stocks.forEach(s => { s.basePrice = s.price; if(s.suspension > 0) s.suspension--; }); await applyMarket("오전"); }
-            else if (next === 2) { await applyMarket("오후"); }
+            let currentDay = marketState.currentDay;
+            if (next === 1) {
+                const reopened = [];
+                stocks.forEach(s => {
+                    s.basePrice = s.price;
+                    if (s.suspension > 0) { s.suspension--; if (s.suspension === 0) reopened.push(s); }
+                });
+                await addNewsEntry(`🔔 제${currentDay}일 오전장이 시작됩니다.`, 'info');
+                for (const s of reopened) await addNewsEntry(`🔓 [거래재개] ${s.icon} ${s.name} 거래가 재개되었습니다.`, 'info');
+                await applyMarket("오전");
+            }
+            else if (next === 2) {
+                await addNewsEntry(`🔔 제${currentDay}일 오후장이 시작됩니다.`, 'info');
+                await applyMarket("오후");
+            }
             else {
+                await addNewsEntry(`🌙 제${currentDay}일 장 마감. 정산을 진행합니다.`, 'info');
                 await processSettlement();
-                state.currentDay += 1;
+                currentDay += 1;
                 const b = writeBatch(db);
                 students.forEach(s => b.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { lastOrderDay: -1 }));
                 stocks.forEach(s => {
@@ -576,7 +617,10 @@
                 });
                 await b.commit();
             }
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), state);
+            // dayPhase/currentDay만 부분 갱신 (applyMarket이 갱신한 pendingRumor 등 다른 필드를 덮어쓰지 않기 위해)
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { dayPhase: next, currentDay });
+            marketState.dayPhase = next;
+            marketState.currentDay = currentDay;
         }
 
         window.handleTimeStep = async () => {
@@ -634,24 +678,109 @@
 
         setInterval(() => { checkAutoSchedule(); checkSeatPayout(); }, 60000);
 
+        const RUMOR_ACCURACY = 0.7;
+        const BIG_MOVE_THRESHOLD = 15; // %
+
+        // 종목 여러 개에 동시에 영향을 주는 뉴스 이벤트 풀 (id는 stocks의 id와 일치)
+        const NEWS_EVENTS = [
+            { text: '감염병이 발생할 것이라는 예상이 돌고 있습니다.', effects: [{ id: 'EH', dir: 'up' }, { id: 'DA', dir: 'down' }] },
+            { text: '국제 유가가 폭등할 조짐이 보입니다.', effects: [{ id: 'DA', dir: 'down' }, { id: 'HA', dir: 'down' }] },
+            { text: '중앙은행이 금리를 인상할 것이라는 전망이 나옵니다.', effects: [{ id: 'MM', dir: 'up' }, { id: 'GC', dir: 'down' }] },
+            { text: '중앙은행이 금리를 인하할 것이라는 전망이 나옵니다.', effects: [{ id: 'MM', dir: 'down' }, { id: 'GC', dir: 'up' }] },
+            { text: '부동산 시장이 뜨겁게 달아오르고 있다는 소식입니다.', effects: [{ id: 'GC', dir: 'up' }, { id: 'MM', dir: 'up' }] },
+            { text: '부동산 시장 침체 우려가 커지고 있습니다.', effects: [{ id: 'GC', dir: 'down' }, { id: 'MM', dir: 'down' }] },
+            { text: '삼성지팡이의 신제품이 대박날 조짐이라고 합니다.', effects: [{ id: 'HW', dir: 'up' }] },
+            { text: '삼성지팡이 제품에서 결함이 발견됐다는 소문이 돕니다.', effects: [{ id: 'HW', dir: 'down' }] },
+            { text: '해외여행 붐이 다시 일어날 거란 기대가 나옵니다.', effects: [{ id: 'DA', dir: 'up' }] },
+            { text: '정부가 여행 자제를 권고할 거라는 소문이 있습니다.', effects: [{ id: 'DA', dir: 'down' }, { id: 'SF', dir: 'up' }] },
+            { text: '전기 요금이 인상될 거라는 발표가 임박했습니다.', effects: [{ id: 'HA', dir: 'up' }, { id: 'SF', dir: 'down' }, { id: 'GP', dir: 'down' }] },
+            { text: '대규모 정전 사태가 발생했다는 소식입니다.', effects: [{ id: 'HA', dir: 'down' }] },
+            { text: '고블린포션화학이 신소재 개발에 성공했다는 소식입니다.', effects: [{ id: 'GP', dir: 'up' }] },
+            { text: '고블린포션화학 공장에서 사고가 났다는 소문이 돕니다.', effects: [{ id: 'GP', dir: 'down' }] },
+            { text: '슬라E마트에 화재가 발생했다는 소문이 돕니다.', effects: [{ id: 'SF', dir: 'down' }] },
+            { text: '명절 대목을 앞두고 마트 특수가 기대됩니다.', effects: [{ id: 'SF', dir: 'up' }] },
+            { text: '미믹은행이 해킹 공격을 당했다는 소문이 퍼지고 있습니다.', effects: [{ id: 'MM', dir: 'down' }] },
+            { text: '미믹은행이 새로운 사업에 진출한다는 소식입니다.', effects: [{ id: 'MM', dir: 'up' }] },
+            { text: '엘프릭스가 신약 개발에 성공했다는 소식입니다.', effects: [{ id: 'EH', dir: 'up' }] },
+            { text: '엘프릭스 관련 의료사고 소문이 돕니다.', effects: [{ id: 'EH', dir: 'down' }] },
+            { text: '현대골렘이 대형 공사를 수주했다는 소식입니다.', effects: [{ id: 'GC', dir: 'up' }] },
+            { text: '현대골렘의 부실공사 논란이 불거지고 있습니다.', effects: [{ id: 'GC', dir: 'down' }] },
+            { text: '소비 심리가 크게 위축되고 있다는 조사 결과가 나왔습니다.', effects: [{ id: 'SF', dir: 'down' }, { id: 'DA', dir: 'down' }] },
+            { text: '소비 심리가 살아나고 있다는 조사 결과가 나왔습니다.', effects: [{ id: 'SF', dir: 'up' }, { id: 'DA', dir: 'up' }] },
+            { text: '태풍이 북상하고 있다는 예보가 나왔습니다.', effects: [{ id: 'DA', dir: 'down' }, { id: 'GC', dir: 'up' }] },
+            { text: '지정학적 긴장이 고조되고 있다는 소식입니다.', effects: [{ id: 'GP', dir: 'down' }, { id: 'HA', dir: 'up' }] },
+            { text: '경기가 호황 국면에 접어들었다는 발표가 나왔습니다.', effects: [{ id: 'HW', dir: 'up' }, { id: 'GP', dir: 'up' }, { id: 'MM', dir: 'up' }] },
+            { text: '경기 침체가 공식화됐다는 발표가 나왔습니다.', effects: [{ id: 'HW', dir: 'down' }, { id: 'GP', dir: 'down' }, { id: 'MM', dir: 'down' }] },
+            { text: '정부가 대규모 공공사업 투자 계획을 발표했습니다.', effects: [{ id: 'GC', dir: 'up' }, { id: 'HA', dir: 'up' }] },
+            { text: '마법기술 규제가 강화될 거라는 소문이 돕니다.', effects: [{ id: 'HW', dir: 'down' }, { id: 'GP', dir: 'down' }] },
+            { text: '마법기술 규제가 완화될 거라는 소문이 돕니다.', effects: [{ id: 'HW', dir: 'up' }, { id: 'GP', dir: 'up' }] },
+            { text: '해외 대형 마트 체인이 국내에 진출한다는 소문이 있습니다.', effects: [{ id: 'SF', dir: 'down' }] },
+            { text: '슬라E마트의 온라인 배송 서비스가 대박났다는 소식입니다.', effects: [{ id: 'SF', dir: 'up' }] },
+            { text: '대한드래곤항공이 신규 노선을 취항한다는 소식입니다.', effects: [{ id: 'DA', dir: 'up' }] },
+            { text: '대한드래곤항공의 정비 불량 소문이 돕니다.', effects: [{ id: 'DA', dir: 'down' }] },
+            { text: '정부가 의료보험 보장을 확대한다는 정책을 발표했습니다.', effects: [{ id: 'EH', dir: 'up' }] },
+            { text: '의료진 파업 소문이 돌고 있습니다.', effects: [{ id: 'EH', dir: 'down' }] },
+            { text: '전국에 한파가 몰아칠 거라는 예보가 나왔습니다.', effects: [{ id: 'HA', dir: 'up' }] },
+            { text: '삼성지팡이가 특허 소송에서 패소했다는 소문이 돕니다.', effects: [{ id: 'HW', dir: 'down' }] },
+            { text: '현대골렘이 부품 공급난을 겪고 있다는 소문입니다.', effects: [{ id: 'GC', dir: 'down' }] },
+        ];
+
         async function applyMarket(time) {
             const b = writeBatch(db);
+            const rumor = marketState.pendingRumor || null; // { text, effects: [{id, dir}] }
+            const resultParts = [];
+            const bigMoves = [];
+            const suspendedNews = [];
+
             stocks.forEach(s => {
-                if (s.suspension > 0) { 
-                    s.history[s.history.length-1] = s.price; 
+                if (s.suspension > 0) {
+                    s.history[s.history.length-1] = s.price;
                 } else {
-                    let c = (Math.random() - 0.5) * s.vol * 2.5;
-                    let p = s.price * (1 + c);
+                    const oldPrice = s.price;
+                    const effect = rumor?.effects?.find(e => e.id === s.id) || null;
+                    const magnitude = Math.random() * s.vol * 1.25; // 기존 ±1.25×vol 범위와 동일한 크기, 부호만 분리
+                    let sign;
+                    if (effect && Math.random() < RUMOR_ACCURACY) sign = effect.dir === 'up' ? 1 : -1;
+                    else sign = Math.random() < 0.5 ? 1 : -1;
+                    let c = sign * magnitude;
+                    let p = oldPrice * (1 + c);
                     const l = s.basePrice * 0.3;
                     if (p > s.basePrice + l) p = s.basePrice + l;
                     if (p < s.basePrice - l) p = s.basePrice - l;
-                    if (p <= 0.1) { p = 0.1; s.suspension = 4; handleLiquidation(s); }
+                    if (p <= 0.1) {
+                        p = 0.1; s.suspension = 4; handleLiquidation(s);
+                        suspendedNews.push(`🚨 [거래정지] ${s.icon} ${s.name}, 하한가로 4일간 거래정지 및 보유자 강제청산`);
+                    }
                     s.price = parseFloat(p.toFixed(1));
                     s.history[s.history.length-1] = s.price; // 현재 날짜의 그래프 포인트 업데이트
+
+                    const pct = ((s.price - oldPrice) / oldPrice) * 100;
+                    if (Math.abs(pct) >= BIG_MOVE_THRESHOLD) {
+                        bigMoves.push(`${pct >= 0 ? '🚀' : '📉'} ${s.icon} ${s.name} ${pct >= 0 ? '급등' : '급락'} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)`);
+                    }
+                    if (effect) {
+                        const wentUp = s.price > oldPrice;
+                        const matched = (wentUp && effect.dir === 'up') || (!wentUp && effect.dir === 'down');
+                        resultParts.push(`${s.icon}${s.name} ${matched ? '✅' : '❌'}${wentUp ? '상승' : '하락'}`);
+                    }
                 }
                 b.set(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', s.id), s);
             });
             await b.commit();
+
+            for (const t of suspendedNews) await addNewsEntry(t, 'bad');
+            if (resultParts.length > 0) await addNewsEntry(`📊 [결과] "${rumor.text}" → ${resultParts.join(', ')}`, 'info');
+            for (const t of bigMoves) await addNewsEntry(t, t.includes('급등') ? 'good' : 'bad');
+
+            // 다음 페이즈를 위한 새 뉴스 이벤트 생성 (약 70% 확률)
+            let nextRumor = null;
+            if (Math.random() < 0.7) {
+                const template = NEWS_EVENTS[Math.floor(Math.random() * NEWS_EVENTS.length)];
+                nextRumor = { text: template.text, effects: template.effects };
+                await addNewsEntry(`📰 [속보] ${template.text}`, 'rumor');
+            }
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { pendingRumor: nextRumor });
+            marketState.pendingRumor = nextRumor;
         }
 
         function handleLiquidation(stock) {
@@ -668,16 +797,22 @@
         async function processSettlement() {
             const d = marketState.currentDay;
             if (d % 10 === 0) {
+                const divIds = ['SF', 'HA', 'MM'];
+                const divNames = divIds.map(id => stocks.find(x => x.id === id)?.name).filter(Boolean).join('/');
+                await addNewsEntry(`💰 정기 배당일! ${divNames} 보유자에게 배당금이 지급되었습니다.`, 'good');
                 students.forEach(async s => {
                     let total = 0;
-                    ['SF', 'HA', 'MM'].forEach(id => {
+                    divIds.forEach(id => {
                         const stk = stocks.find(x => x.id === id);
                         if (s.holdings?.[id]?.qty > 0) { const v = stk.price * 0.05; if(v >= 0.1) total += v * s.holdings[id].qty; }
                     });
                     if (total > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + total).toFixed(1)) });
                 });
             }
-            if (d % 30 === 0) { students.forEach(async s => { const i = s.cash * 0.1; if(i > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + i).toFixed(1)) }); }); }
+            if (d % 30 === 0) {
+                await addNewsEntry(`🏦 이자 지급일! 보유 현금에 이자가 지급되었습니다.`, 'good');
+                students.forEach(async s => { const i = s.cash * 0.1; if(i > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + i).toFixed(1)) }); });
+            }
         }
 
         function updateUI() {
@@ -796,8 +931,32 @@
             document.getElementById('stock-list-body').innerHTML = stocks.map(s => {
                 const diff = (s.price - s.basePrice).toFixed(1);
                 const color = diff >= 0 ? 'text-rose-500' : 'text-blue-500';
-                return `<tr class="border-b border-slate-800/50 text-white text-xs"><td class="py-3 font-bold">${s.icon} ${s.name} ${s.suspension > 0 ? '[정지]' : ''}</td><td class="py-3 text-right font-mono font-bold text-amber-200">${s.price.toFixed(1)}</td><td class="py-3 text-right font-mono text-[10px] ${color}">${diff >= 0 ? '▲' : '▼'}${Math.abs(diff)}</td></tr>`;
+                return `<tr class="border-b border-slate-800/50 text-white text-xs"><td class="py-3 font-bold">${s.icon} ${s.name} ${s.suspension > 0 ? '[정지]' : ''} <button onclick="showStockInfo('${s.id}')" class="ml-1 w-4 h-4 inline-flex items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[9px] align-middle hover:bg-slate-700 hover:text-white">i</button></td><td class="py-3 text-right font-mono font-bold text-amber-200">${s.price.toFixed(1)}</td><td class="py-3 text-right font-mono text-[10px] ${color}">${diff >= 0 ? '▲' : '▼'}${Math.abs(diff)}</td></tr>`;
             }).join('');
+        }
+        window.showStockInfo = (id) => {
+            const s = stocks.find(x => x.id === id);
+            if (!s) return;
+            const volTier = s.vol <= 0.10 ? { label: '낮음', color: 'text-emerald-400' } : s.vol <= 0.15 ? { label: '보통', color: 'text-amber-400' } : { label: '높음', color: 'text-rose-400' };
+            document.getElementById('stockinfo-title').innerText = `${s.icon} ${s.name}`;
+            document.getElementById('stockinfo-desc').innerText = s.desc || '설명이 없습니다.';
+            document.getElementById('stockinfo-vol').innerText = volTier.label;
+            document.getElementById('stockinfo-vol').className = `font-bold ${volTier.color}`;
+            document.getElementById('stockinfo-div').innerText = s.div ? 'O (10일마다 배당)' : 'X';
+            document.getElementById('stockinfo-div').className = `font-bold ${s.div ? 'text-emerald-400' : 'text-slate-500'}`;
+            document.getElementById('modal-stock-info').style.display = 'flex';
+        };
+
+        async function addNewsEntry(text, type = 'info') {
+            try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), { text, type, timestamp: Date.now() }); }
+            catch (e) { /* 뉴스 기록 실패는 게임 진행에 영향 없음 */ }
+        }
+        function renderNews() {
+            const cont = document.getElementById('news-container');
+            if (!cont) return;
+            const typeClass = { good: 'border-emerald-500 text-emerald-300', bad: 'border-rose-500 text-rose-300', rumor: 'border-amber-500 text-amber-300', info: 'border-slate-700 text-slate-400' };
+            if (newsItems.length === 0) { cont.innerHTML = '<p class="text-center text-slate-600 text-xs py-6 italic">아직 소식이 없습니다.</p>'; return; }
+            cont.innerHTML = newsItems.map(n => `<div class="border-l-2 pl-2 py-1 ${typeClass[n.type] || typeClass.info}">${n.text}</div>`).join('');
         }
 
         function renderRankings() {
