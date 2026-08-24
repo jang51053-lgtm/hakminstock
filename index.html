@@ -448,6 +448,7 @@
         const appId = "hakminstock";
 
         let marketState = { currentDay: 1, dayPhase: 0 };
+        let marketStateSeen = false; // market/state 문서를 실제로 읽은 적이 있는지 (실수로 재초기화 방지용)
         let stocks = [];
         let students = [];
         let orders = [];
@@ -482,8 +483,21 @@
 
         function initSync() {
             onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), (s) => {
-                if (s.exists()) { marketState = s.data(); updateUI(); }
-                else initializeCloud();
+                if (s.exists()) {
+                    marketState = s.data();
+                    marketStateSeen = true;
+                    updateUI();
+                } else if (!marketStateSeen) {
+                    // 이 리스너가 문서를 아직 한 번도 못 본 경우에만 "최초 세팅"으로 간주하고 초기화한다.
+                    // (이미 진행 중이던 시즌 도중 일시적 오류로 문서가 안 읽혔을 때 조용히 1일차로 리셋되는 것을 방지)
+                    initializeCloud();
+                } else {
+                    console.error('market/state 문서를 읽을 수 없습니다 (이전엔 정상 존재). 자동 초기화를 건너뜁니다.');
+                    showToast('⚠️ 시장 데이터 연결에 문제가 있습니다. 새로고침 후에도 반복되면 관리자에게 문의하세요.');
+                }
+            }, (err) => {
+                console.error('market/state snapshot error:', err);
+                showToast('⚠️ 서버 연결 오류가 발생했습니다. 네트워크 상태를 확인해주세요.');
             });
 
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'stocks'), (s) => {
@@ -890,21 +904,35 @@
             if (approved) {
                 if (o.type === 'multi') {
                     let cash = s.cash, h = { ...s.holdings } || {};
+                    const failed = []; // 승인 시점 가격/보유량 기준으로 처리 못 한 항목 (조용히 무시되던 것을 눈에 보이게 기록)
                     o.basket.forEach(it => {
                         const stk = stocks.find(x => x.id === it.stockId);
-                        if (it.type === 'buy' && cash >= stk.price * it.qty) {
-                            cash -= stk.price * it.qty;
-                            if (!h[stk.id]) h[stk.id] = { qty: 0, avg: 0 };
-                            h[stk.id].avg = ((h[stk.id].qty * h[stk.id].avg) + (stk.price * it.qty)) / (h[stk.id].qty + it.qty);
-                            h[stk.id].qty += it.qty;
-                        } else if (it.type === 'sell' && h[stk.id]?.qty >= it.qty) {
-                            const profit = (stk.price - h[stk.id].avg) * it.qty;
-                            const tax = profit > 0 ? profit * 0.1 : 0;
-                            cash += (stk.price * it.qty) - tax;
-                            h[stk.id].qty -= it.qty; if(h[stk.id].qty <= 0) delete h[stk.id];
+                        if (!stk) { failed.push(`알 수 없는 종목(${it.stockId}) ${it.qty}주`); return; }
+                        if (it.type === 'buy') {
+                            const cost = stk.price * it.qty;
+                            if (cash >= cost) {
+                                cash -= cost;
+                                if (!h[stk.id]) h[stk.id] = { qty: 0, avg: 0 };
+                                h[stk.id].avg = ((h[stk.id].qty * h[stk.id].avg) + (stk.price * it.qty)) / (h[stk.id].qty + it.qty);
+                                h[stk.id].qty += it.qty;
+                            } else {
+                                failed.push(`매수 실패 - ${stk.icon}${stk.name} ${it.qty}주 (필요 ${cost.toFixed(1)}C, 현재 잔액 ${cash.toFixed(1)}C)`);
+                            }
+                        } else if (it.type === 'sell') {
+                            if (h[stk.id]?.qty >= it.qty) {
+                                const profit = (stk.price - h[stk.id].avg) * it.qty;
+                                const tax = profit > 0 ? profit * 0.1 : 0;
+                                cash += (stk.price * it.qty) - tax;
+                                h[stk.id].qty -= it.qty; if(h[stk.id].qty <= 0) delete h[stk.id];
+                            } else {
+                                failed.push(`매도 실패 - ${stk.icon}${stk.name} ${it.qty}주 (현재 보유 ${h[stk.id]?.qty || 0}주)`);
+                            }
                         }
                     });
                     await updateDoc(stdDoc, { cash: parseFloat(cash.toFixed(1)), holdings: h });
+                    if (failed.length > 0) {
+                        alert(`⚠️ [${o.studentName}] 주문 중 일부 항목이 반영되지 않았습니다 (승인 시점 시세/보유량 기준으로 조건 불충족):\n\n${failed.join('\n')}\n\n※ 신청 시점 이후 시세가 바뀌었거나 다른 주문이 먼저 처리되어 발생할 수 있습니다. 필요하면 학생에게 재신청을 안내하거나 '모험가 관리'에서 직접 자산을 조정해주세요.`);
+                    }
                 } else if (o.type === 'withdraw' && s.cash >= o.qty) { await updateDoc(stdDoc, { cash: parseFloat((s.cash - o.qty).toFixed(1)) }); }
                 else if (o.type === 'deposit') { await updateDoc(stdDoc, { cash: parseFloat((s.cash + o.qty).toFixed(1)) }); }
             } else if (o.type === 'multi') { await updateDoc(stdDoc, { lastOrderDay: -1 }); }
