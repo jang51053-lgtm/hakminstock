@@ -25,6 +25,7 @@
         .phase-1 { background: #3b82f6; color: #fff; }
         .phase-2 { background: #6366f1; color: #fff; }
         .admin-only { display: none; }
+        .broker-only { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .loading-screen { position: fixed; inset: 0; background: #020617; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -63,19 +64,21 @@
 
             <div class="hidden md:flex gap-4 font-bold text-slate-400">
                 <div id="tab-market" onclick="switchView('market')" class="nav-tab active">시황 중계</div>
-                <div id="tab-management" onclick="switchView('management')" class="nav-tab admin-only">모험가 관리</div>
+                <div id="tab-orders" onclick="switchView('orders')" class="nav-tab broker-only">📥 주문 승인</div>
+                <div id="tab-roster" onclick="switchView('roster')" class="nav-tab admin-only">모험가 관리</div>
                 <div id="tab-shopadmin" onclick="switchView('shopadmin')" class="nav-tab admin-only">마켓 관리</div>
                 <div onclick="openStudentLoginModal()" class="nav-tab text-emerald-400 border-emerald-900/30 bg-emerald-900/10">내 계좌 확인</div>
             </div>
 
             <div class="flex items-center gap-4">
                 <button id="admin-settings-btn" onclick="openAdminSettings()" class="settings-btn admin-only" title="관리자 설정">⚙️</button>
+                <button id="broker-login-btn" onclick="toggleBrokerAuth()" class="text-[10px] bg-slate-800 px-3 py-1.5 rounded-lg font-bold border border-slate-700">거래소 담당</button>
                 <button id="admin-login-btn" onclick="toggleAdminAuth()" class="text-[10px] bg-slate-800 px-3 py-1.5 rounded-lg font-bold border border-slate-700">관리자</button>
                 <div class="text-right">
                     <p id="display-date" class="text-lg font-black leading-none">제 1 일 [오전]</p>
                     <span id="display-phase" class="phase-badge phase-0 mt-1 inline-block">장 대기 중</span>
                 </div>
-                <button id="step-btn" onclick="handleTimeStep()" class="admin-only btn-action bg-blue-600 px-6 py-2 text-xs text-white">진행</button>
+                <button id="step-btn" onclick="handleTimeStep()" class="broker-only btn-action bg-blue-600 px-6 py-2 text-xs text-white">진행</button>
             </div>
         </div>
     </nav>
@@ -116,34 +119,35 @@
             </div>
         </div>
 
-        <div id="view-management" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 text-white">
-            <div class="lg:col-span-8 space-y-6">
-                <div class="fantasy-card p-6 text-white">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-sm font-black text-emerald-400 uppercase tracking-widest">👤 모험가 관리 명부</h2>
-                        <div class="flex gap-2">
-                            <input type="text" id="new-student-name" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-xs text-white" placeholder="신규 이름">
-                            <button onclick="addStudent()" class="bg-emerald-600 px-3 py-1 rounded-lg text-xs font-bold">등록</button>
-                        </div>
-                    </div>
-                    <div class="overflow-x-auto text-white">
-                        <table class="w-full text-left text-xs border-separate border-spacing-y-2">
-                            <thead>
-                                <tr class="text-slate-500 uppercase font-bold text-white">
-                                    <th class="px-2">이름</th>
-                                    <th class="px-2 text-right">현금</th>
-                                    <th class="px-2 text-right">총 자산</th>
-                                    <th class="px-2 text-center">뽑기권</th>
-                                    <th class="px-2 text-center">비밀번호</th>
-                                    <th class="px-2 text-center">관리</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-student-list"></tbody>
-                        </table>
+        <div id="view-roster" class="hidden grid grid-cols-1 gap-6 text-white">
+            <div class="fantasy-card p-6 text-white">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-sm font-black text-emerald-400 uppercase tracking-widest">👤 모험가 관리 명부</h2>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-student-name" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-xs text-white" placeholder="신규 이름">
+                        <button onclick="addStudent()" class="bg-emerald-600 px-3 py-1 rounded-lg text-xs font-bold">등록</button>
                     </div>
                 </div>
+                <div class="overflow-x-auto text-white">
+                    <table class="w-full text-left text-xs border-separate border-spacing-y-2">
+                        <thead>
+                            <tr class="text-slate-500 uppercase font-bold text-white">
+                                <th class="px-2">이름</th>
+                                <th class="px-2 text-right">현금</th>
+                                <th class="px-2 text-right">총 자산</th>
+                                <th class="px-2 text-center">뽑기권</th>
+                                <th class="px-2 text-center">비밀번호</th>
+                                <th class="px-2 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-student-list"></tbody>
+                    </table>
+                </div>
             </div>
-            <div class="lg:col-span-4 space-y-6">
+        </div>
+
+        <div id="view-orders" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 text-white">
+            <div class="lg:col-span-8 lg:col-start-3 space-y-6">
                 <div class="fantasy-card p-6 border-blue-500/30 text-white text-white">
                     <h2 class="text-sm font-black text-blue-400 uppercase tracking-widest mb-4 flex justify-between items-center">
                         <span>📥 주문 승인 대기열</span>
@@ -368,6 +372,16 @@
         </div>
     </div>
 
+    <!-- 모달: 거래소 담당 로그인 -->
+    <div id="modal-broker-login" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
+        <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-80 text-center text-white">
+            <h2 class="text-xl font-black text-white mb-2">거래소 담당 인증</h2>
+            <p class="text-[10px] text-slate-500 mb-6">주문 승인 · 장 진행만 가능한 제한된 권한입니다.</p>
+            <input type="password" id="broker-pw-input" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-center text-white mb-4 text-white" placeholder="비밀번호">
+            <button onclick="checkBrokerPW()" class="w-full btn-action bg-blue-600 py-3 text-white">확인</button>
+        </div>
+    </div>
+
     <!-- 종목 정보 모달 -->
     <div id="modal-stock-info" class="modal-overlay" onclick="if(event.target==this) this.style.display='none'">
         <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 w-80 text-white">
@@ -395,6 +409,13 @@
                     <div class="flex gap-2 mt-1">
                         <input type="text" id="settings-new-pw" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2 text-white text-sm" placeholder="새 비밀번호">
                         <button onclick="saveAdminPassword()" class="bg-blue-600 px-4 rounded-xl text-xs font-bold">저장</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase">거래소 담당 비밀번호 변경 (주문승인·진행 전용 계정)</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="text" id="settings-broker-pw" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2 text-white text-sm" placeholder="새 비밀번호">
+                        <button onclick="saveBrokerPassword()" class="bg-blue-600 px-4 rounded-xl text-xs font-bold">저장</button>
                     </div>
                 </div>
                 <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800">
@@ -455,6 +476,7 @@
         let basket = [];
         let loggedInIdx = null;
         let isAdmin = false;
+        let isBroker = false; // 거래소 담당(학생 위임): 주문 승인 + 장 진행만 가능
         let chart = null;
         let deleteTargetId = null;
         let shopItems = [];
@@ -540,7 +562,7 @@
         }
 
         async function initializeCloud() {
-            marketState = { currentDay: 1, dayPhase: 0, adminPassword: "5105", autoMode: false, lastAutoTrigger: "", lastSeatPayoutAt: 0, gachaCost: { single: 5, ten: 45 }, pendingRumor: null };
+            marketState = { currentDay: 1, dayPhase: 0, adminPassword: "5105", brokerPassword: "1234", autoMode: false, lastAutoTrigger: "", lastSeatPayoutAt: 0, gachaCost: { single: 5, ten: 45 }, pendingRumor: null };
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), marketState);
             const list = getInitStocks();
             for (const item of list) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', item.id), item); }
@@ -646,7 +668,7 @@
         }
 
         window.handleTimeStep = async () => {
-            if (!isAdmin) return;
+            if (!isAdmin && !isBroker) return;
             await advancePhase();
         };
 
@@ -845,9 +867,15 @@
             pb.className = `phase-badge phase-${marketState.dayPhase}`;
             pb.innerText = pStates[marketState.dayPhase];
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? 'block' : 'none');
+            document.querySelectorAll('.broker-only').forEach(el => el.style.display = (isAdmin || isBroker) ? 'block' : 'none');
+            const brokerBtn = document.getElementById('broker-login-btn');
+            if (brokerBtn) brokerBtn.innerText = isBroker ? '거래소 담당 (로그아웃)' : '거래소 담당';
+            const adminBtn = document.getElementById('admin-login-btn');
+            if (adminBtn) adminBtn.innerText = isAdmin ? '관리자 (로그아웃)' : '관리자';
         }
 
         window.openEditPW = (idx) => {
+            if (!isAdmin) return;
             const s = students[idx];
             document.getElementById('pw-edit-name').innerText = s.name;
             document.getElementById('pw-edit-input').value = s.password;
@@ -860,6 +888,7 @@
         };
 
         window.openAdjustAsset = (idx, field = 'cash') => {
+            if (!isAdmin) return;
             const s = students[idx];
             const isCash = field === 'cash';
             document.getElementById('adjust-name').innerText = s.name;
@@ -885,6 +914,7 @@
         };
 
         window.processOrder = async (id, approved) => {
+            if (!isAdmin && !isBroker) return;
             const o = orders.find(x => x.id === id); if (!o) return;
             const stdDoc = doc(db, 'artifacts', appId, 'public', 'data', 'students', o.studentId);
             const snap = await getDoc(stdDoc); if (!snap.exists()) return;
@@ -1005,12 +1035,14 @@
         }
 
         window.openDeleteConfirm = (id, name) => {
+            if (!isAdmin) return;
             deleteTargetId = id;
             document.getElementById('delete-confirm-text').innerText = `[${name}] 모험가를 영구 삭제합니다.`;
             document.getElementById('modal-delete-confirm').style.display = 'flex';
         };
 
         window.executeDeleteStudent = async () => {
+            if (!isAdmin) return;
             if (deleteTargetId) {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', deleteTargetId));
                 deleteTargetId = null;
@@ -1050,10 +1082,16 @@
         function getAssets(s) { let v = 0; if (s.holdings) Object.keys(s.holdings).forEach(id => { const stk = stocks.find(x => x.id === id); if (stk) v += s.holdings[id].qty * stk.price; }); return s.cash + v; }
         function showToast(m) { const t = document.getElementById('game-toast'); t.innerText = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
 
-        window.toggleAdminAuth = () => { if (isAdmin) { isAdmin = false; showToast("로그아웃"); updateUI(); } else document.getElementById('modal-admin-login').style.display = 'flex'; };
+        window.toggleAdminAuth = () => { if (isAdmin) { isAdmin = false; showToast("로그아웃"); updateUI(); switchView('market'); } else document.getElementById('modal-admin-login').style.display = 'flex'; };
         window.checkAdminPW = () => {
             const correct = marketState.adminPassword || "5105";
-            if (document.getElementById('admin-pw-input').value === correct) { isAdmin = true; document.getElementById('modal-admin-login').style.display = 'none'; updateUI(); }
+            if (document.getElementById('admin-pw-input').value === correct) { isAdmin = true; document.getElementById('admin-pw-input').value = ''; document.getElementById('modal-admin-login').style.display = 'none'; updateUI(); }
+            else showToast("비번 오류");
+        };
+        window.toggleBrokerAuth = () => { if (isBroker) { isBroker = false; showToast("거래소 담당 로그아웃"); updateUI(); switchView('market'); } else document.getElementById('modal-broker-login').style.display = 'flex'; };
+        window.checkBrokerPW = () => {
+            const correct = marketState.brokerPassword || "1234";
+            if (document.getElementById('broker-pw-input').value === correct) { isBroker = true; document.getElementById('broker-pw-input').value = ''; document.getElementById('modal-broker-login').style.display = 'none'; updateUI(); showToast("거래소 담당 로그인 완료"); }
             else showToast("비번 오류");
         };
 
@@ -1067,11 +1105,20 @@
             document.getElementById('modal-admin-settings').style.display = 'flex';
         };
         window.saveAdminPassword = async () => {
+            if (!isAdmin) return;
             const pw = document.getElementById('settings-new-pw').value.trim();
             if (!pw) return showToast("비밀번호를 입력하세요.");
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { adminPassword: pw });
             document.getElementById('settings-new-pw').value = '';
             showToast("비밀번호가 변경되었습니다.");
+        };
+        window.saveBrokerPassword = async () => {
+            if (!isAdmin) return;
+            const pw = document.getElementById('settings-broker-pw').value.trim();
+            if (!pw) return showToast("비밀번호를 입력하세요.");
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { brokerPassword: pw });
+            document.getElementById('settings-broker-pw').value = '';
+            showToast("거래소 담당 비밀번호가 변경되었습니다.");
         };
         window.toggleAutoMode = async (checked) => {
             if (!isAdmin) return;
@@ -1079,20 +1126,27 @@
             showToast(checked ? "자동 진행이 켜졌습니다." : "자동 진행이 꺼졌습니다.");
         };
         window.saveGachaCost = async () => {
+            if (!isAdmin) return;
             const single = parseFloat(document.getElementById('settings-gacha-single').value) || 0;
             const ten = parseFloat(document.getElementById('settings-gacha-ten').value) || 0;
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { gachaCost: { single, ten } });
             showToast("가챠 가격이 저장되었습니다.");
         };
         window.switchView = (v) => {
+            if (v === 'roster' && !isAdmin) v = 'market';
+            if (v === 'shopadmin' && !isAdmin) v = 'market';
+            if (v === 'orders' && !isAdmin && !isBroker) v = 'market';
             document.getElementById('view-market').classList.toggle('hidden', v !== 'market');
-            document.getElementById('view-management').classList.toggle('hidden', v !== 'management');
+            document.getElementById('view-roster').classList.toggle('hidden', v !== 'roster');
+            document.getElementById('view-orders').classList.toggle('hidden', v !== 'orders');
             document.getElementById('view-shopadmin').classList.toggle('hidden', v !== 'shopadmin');
             document.getElementById('tab-market').classList.toggle('active', v === 'market');
-            document.getElementById('tab-management').classList.toggle('active', v === 'management');
+            document.getElementById('tab-roster').classList.toggle('active', v === 'roster');
+            document.getElementById('tab-orders').classList.toggle('active', v === 'orders');
             document.getElementById('tab-shopadmin').classList.toggle('active', v === 'shopadmin');
         };
         window.switchShopAdminTab = (v) => {
+            if (!isAdmin) return;
             ['shop','seat','gacha'].forEach(k => {
                 document.getElementById(`shopadmin-panel-${k}`).classList.toggle('hidden', k !== v);
                 document.getElementById(`shopadmin-tab-${k}`).classList.toggle('active', k === v);
@@ -1105,10 +1159,11 @@
             document.getElementById('portal-tab-market').classList.toggle('active', v === 'market');
             if (v === 'market') { renderPortalShop(); renderPortalSeats(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); }
         };
-        window.addStudent = async () => { const n = document.getElementById('new-student-name').value.trim(); if (!n) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1, gachaPity: 0, inventory: [], ticketCount: 0, normalStack: 0, fragments: {} }); document.getElementById('new-student-name').value = ''; };
+        window.addStudent = async () => { if (!isAdmin) return; const n = document.getElementById('new-student-name').value.trim(); if (!n) return; await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), { name: n, cash: 100.0, holdings: {}, password: "0000", lastOrderDay: -1, gachaPity: 0, inventory: [], ticketCount: 0, normalStack: 0, fragments: {} }); document.getElementById('new-student-name').value = ''; };
 
         // --- 상점 아이템 관리 (관리자) ---
         window.addShopItem = async () => {
+            if (!isAdmin) return;
             const name = document.getElementById('new-shop-name').value.trim();
             const price = parseFloat(document.getElementById('new-shop-price').value);
             const icon = document.getElementById('new-shop-icon').value.trim() || '🎁';
@@ -1117,8 +1172,9 @@
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'shopItems'), { name, price, icon, description, order: shopItems.length });
             document.getElementById('new-shop-name').value = ''; document.getElementById('new-shop-price').value = ''; document.getElementById('new-shop-icon').value = ''; document.getElementById('new-shop-desc').value = '';
         };
-        window.deleteShopItem = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shopItems', id)); };
+        window.deleteShopItem = async (id) => { if (!isAdmin) return; await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shopItems', id)); };
         window.updateShopItemField = async (id, field, value) => {
+            if (!isAdmin) return;
             const val = (field === 'price') ? (parseFloat(value) || 0) : value;
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shopItems', id), { [field]: val });
         };
@@ -1130,6 +1186,7 @@
 
         // --- 좌석(부동산) 관리 (관리자) ---
         window.addSeat = async () => {
+            if (!isAdmin) return;
             const name = document.getElementById('new-seat-name').value.trim();
             const price = parseFloat(document.getElementById('new-seat-price').value);
             const weeklyIncome = parseFloat(document.getElementById('new-seat-income').value) || 0;
@@ -1137,12 +1194,13 @@
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'seats'), { name, price, weeklyIncome, ownerId: null, ownerName: null, order: seats.length });
             document.getElementById('new-seat-name').value = ''; document.getElementById('new-seat-price').value = ''; document.getElementById('new-seat-income').value = '';
         };
-        window.deleteSeat = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id)); };
+        window.deleteSeat = async (id) => { if (!isAdmin) return; await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id)); };
         window.updateSeatField = async (id, field, value) => {
+            if (!isAdmin) return;
             const val = (field === 'price' || field === 'weeklyIncome') ? (parseFloat(value) || 0) : value;
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id), { [field]: val });
         };
-        window.releaseSeat = async (id) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id), { ownerId: null, ownerName: null }); showToast("소유 해제됨"); };
+        window.releaseSeat = async (id) => { if (!isAdmin) return; await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'seats', id), { ownerId: null, ownerName: null }); showToast("소유 해제됨"); };
         function renderSeatAdmin() {
             const cont = document.getElementById('seatadmin-list');
             if (!cont) return;
@@ -1151,6 +1209,7 @@
 
         // --- 가챠 풀 관리 (관리자) ---
         window.addGachaItem = async () => {
+            if (!isAdmin) return;
             const name = document.getElementById('new-gacha-name').value.trim();
             const tier = document.getElementById('new-gacha-tier').value;
             const icon = document.getElementById('new-gacha-icon').value.trim() || '🎫';
@@ -1158,8 +1217,8 @@
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'gachaPool'), { name, tier, icon, order: gachaPool.length });
             document.getElementById('new-gacha-name').value = ''; document.getElementById('new-gacha-icon').value = '';
         };
-        window.deleteGachaItem = async (id) => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gachaPool', id)); };
-        window.updateGachaItemField = async (id, field, value) => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gachaPool', id), { [field]: value }); };
+        window.deleteGachaItem = async (id) => { if (!isAdmin) return; await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gachaPool', id)); };
+        window.updateGachaItemField = async (id, field, value) => { if (!isAdmin) return; await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gachaPool', id), { [field]: value }); };
         function renderGachaAdmin() {
             const cont = document.getElementById('gachaadmin-list');
             if (!cont) return;
