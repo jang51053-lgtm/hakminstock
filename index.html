@@ -775,6 +775,7 @@
             const resultParts = [];
             const bigMoves = [];
             const suspendedNews = [];
+            const suspendedThisTick = []; // 이번 틱에 새로 하한가/거래정지된 종목들 (한꺼번에 모아서 일괄 청산 처리)
 
             stocks.forEach(s => {
                 if (s.suspension > 0) {
@@ -792,7 +793,7 @@
                     if (p > s.basePrice + l) p = s.basePrice + l;
                     if (p < s.basePrice - l) p = s.basePrice - l;
                     if (p <= 0.1) {
-                        p = 0.1; s.suspension = 4; handleLiquidation(s);
+                        p = 0.1; s.suspension = 4; suspendedThisTick.push(s);
                         suspendedNews.push(`🚨 [거래정지] ${s.icon} ${s.name}, 하한가로 4일간 거래정지 및 보유자 강제청산`);
                     }
                     s.price = parseFloat(p.toFixed(1));
@@ -812,6 +813,11 @@
             });
             await b.commit();
 
+            // 이번 틱에 여러 종목이 동시에 하한가를 맞아도, 학생 1인당 update를 1회만 보내
+            // (기존에는 종목별로 각각 updateDoc을 날려서, 두 종목이 같은 틱에 정지되면
+            //  나중 요청이 이전 요청을 덮어써 청산 보상이 사라지거나 보유 종목이 그대로 "유령"처럼 남는 문제가 있었음)
+            if (suspendedThisTick.length > 0) await handleLiquidationBatch(suspendedThisTick);
+
             for (const t of suspendedNews) await addNewsEntry(t, 'bad');
             if (resultParts.length > 0) await addNewsEntry(`📊 [결과] "${rumor.text}" → ${resultParts.join(', ')}`, 'info');
             for (const t of bigMoves) await addNewsEntry(t, t.includes('급등') ? 'good' : 'bad');
@@ -827,15 +833,30 @@
             marketState.pendingRumor = nextRumor;
         }
 
-        function handleLiquidation(stock) {
-            students.forEach(async std => {
-                if (std.holdings?.[stock.id]?.qty > 0) {
-                    const r = parseFloat((std.holdings[stock.id].qty * 0.1).toFixed(1));
-                    const nc = parseFloat((std.cash + r).toFixed(1));
-                    const h = { ...std.holdings }; delete h[stock.id];
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: nc, holdings: h });
+        // 하한가로 거래정지된 종목들을 보유 학생 전원에 대해 "학생당 1회 batch update"로 강제 청산.
+        // (여러 종목이 같은 틱에 함께 정지돼도 update가 서로 덮어쓰지 않도록 반드시 한 번에 처리)
+        async function handleLiquidationBatch(stocksList) {
+            const b = writeBatch(db);
+            let touched = false;
+            students.forEach(std => {
+                const h = { ...(std.holdings || {}) };
+                let refund = 0;
+                let changed = false;
+                stocksList.forEach(stock => {
+                    const qty = h[stock.id]?.qty || 0;
+                    if (qty > 0) {
+                        refund += qty * 0.1;
+                        delete h[stock.id];
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    const nc = parseFloat((std.cash + refund).toFixed(1));
+                    b.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: nc, holdings: h });
+                    touched = true;
                 }
             });
+            if (touched) await b.commit();
         }
 
         async function processSettlement() {
