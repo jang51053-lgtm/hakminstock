@@ -255,25 +255,20 @@
                     <div class="lg:col-span-2 space-y-4">
                         <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800">
                             <h3 class="text-xs font-black text-blue-400 uppercase mb-4 flex justify-between">
-                                <span>🛒 주식 거래 장바구니 (1일 1회 제출)</span>
-                                <span id="order-limit-status" class="text-[10px]"></span>
+                                <span>⚡ 실시간 주식 거래 (즉시 체결)</span>
+                                <span class="text-[10px] text-amber-300 font-bold">매도 시 수수료 10%</span>
                             </h3>
                             <div class="flex gap-2 mb-4">
-                                <select id="portal-trade-type" class="bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white">
+                                <select id="portal-trade-type" onchange="renderTradePreview()" class="bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white">
                                     <option value="buy">매수</option>
                                     <option value="sell">매도</option>
                                 </select>
-                                <select id="portal-stock-list" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white"></select>
-                                <input type="number" id="portal-trade-qty" class="w-20 bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white" placeholder="수량">
-                                <button onclick="addToBasket()" class="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">담기</button>
+                                <select id="portal-stock-list" onchange="renderTradePreview()" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white"></select>
+                                <input type="number" id="portal-trade-qty" oninput="renderTradePreview()" min="1" step="1" class="w-20 bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white" placeholder="수량">
+                                <button onclick="fillMaxQty()" class="bg-slate-800 border border-slate-700 px-3 py-2 rounded-xl text-[10px] font-bold whitespace-nowrap">최대</button>
                             </div>
-                            <div class="bg-slate-900/50 rounded-xl p-4 min-h-[150px] max-h-[150px] overflow-y-auto custom-scrollbar mb-4 text-white">
-                                <table class="w-full text-[11px] text-left">
-                                    <thead><tr class="text-slate-500 uppercase"><th class="pb-2">종류</th><th class="pb-2">종목</th><th class="pb-2 text-right">수량</th><th class="pb-2 text-center">삭제</th></tr></thead>
-                                    <tbody id="basket-body"></tbody>
-                                </table>
-                            </div>
-                            <button id="submit-basket-btn" onclick="submitBasket()" class="w-full btn-action bg-blue-600 py-3 text-xs disabled:opacity-50">최종 거래 신청서 제출</button>
+                            <div id="trade-preview" class="bg-slate-900/50 rounded-xl p-4 min-h-[150px] mb-4 text-white text-[11px] space-y-1"></div>
+                            <button id="submit-trade-btn" onclick="executeTrade()" class="w-full btn-action bg-blue-600 py-3 text-xs disabled:opacity-50">바로 거래하기</button>
                         </div>
                     </div>
                     <div class="space-y-6">
@@ -451,7 +446,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, addDoc, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, addDoc, writeBatch, runTransaction, increment, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase 설정 ---
         const firebaseConfig = {
@@ -473,8 +468,8 @@
         let stocks = [];
         let students = [];
         let orders = [];
-        let basket = [];
         let loggedInIdx = null;
+        let loggedInId = null; // 학생 목록 순서가 바뀌어도 로그인한 학생을 정확히 찾기 위한 id
         let isAdmin = false;
         let isBroker = false; // 거래소 담당(학생 위임): 주문 승인 + 장 진행만 가능
         let chart = null;
@@ -523,13 +518,14 @@
 
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'stocks'), (s) => {
                 stocks = s.docs.map(d => d.data()).sort((a,b) => a.order - b.order);
-                if (stocks.length > 0) { renderStocks(); updateChart(); renderRankings(); if(loggedInIdx !== null) renderInventory(); }
+                if (stocks.length > 0) { renderStocks(); updateChart(); renderRankings(); if(loggedInIdx !== null) { renderInventory(); renderPortalStockOptions(); renderTradePreview(); renderAssetOverview(); } }
             });
 
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (s) => {
                 students = s.docs.map(d => ({ ...d.data(), id: d.id }));
+                if (loggedInId !== null) { const i = students.findIndex(x => x.id === loggedInId); if (i === -1) { closePortal(); } else loggedInIdx = i; }
                 renderRankings(); renderAdminStudents();
-                if (loggedInIdx !== null) { renderAssetOverview(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); }
+                if (loggedInIdx !== null) { document.getElementById('portal-user-cash').innerText = `${students[loggedInIdx].cash.toFixed(1)} C`; renderInventory(); renderTradePreview(); renderAssetOverview(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); }
                 document.getElementById('loading-screen').style.display = 'none';
             });
 
@@ -632,9 +628,40 @@
             }
         };
 
+        // 장 진행 중복 방지: 여러 기기(관리자/거래소 담당/자동진행)가 거의 동시에 눌러도 한 번만 진행되도록
+        // market/state를 트랜잭션으로 먼저 "선점"한 뒤 진행한다.
+        // (검증 결과 과거 3·5일차가 같은 초에 두 번 진행되어 그래프에 중복 포인트가 생긴 이력이 있음)
+        let phaseAdvancing = false;
         async function advancePhase() {
-            const next = (marketState.dayPhase + 1) % 3;
-            let currentDay = marketState.currentDay;
+            if (phaseAdvancing) return;
+            phaseAdvancing = true;
+            try {
+                const prevPhase = marketState.dayPhase, prevDay = marketState.currentDay;
+                const next = (prevPhase + 1) % 3;
+                const newDay = next === 0 ? prevDay + 1 : prevDay;
+                // 새 필드를 추가하지 않고, 기존 dayPhase/currentDay 값 자체를 트랜잭션으로 "선점"한다.
+                // 내가 알고 있던 단계와 서버 단계가 같을 때만 진행 → 동시에 눌러도 한 곳만 성공
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state');
+                const claimed = await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) return false;
+                    const st = snap.data();
+                    if (st.dayPhase !== prevPhase || st.currentDay !== prevDay) return false;
+                    tx.update(ref, { dayPhase: next, currentDay: newDay });
+                    return true;
+                });
+                if (!claimed) { showToast('이미 다른 곳에서 장이 진행되었습니다. 화면을 확인하세요.'); return; }
+                await advancePhaseInner(next, prevDay);
+            } catch (e) {
+                console.error('advancePhase error:', e);
+                showToast('⚠️ 장 진행 중 오류가 발생했습니다.');
+            } finally {
+                phaseAdvancing = false;
+            }
+        }
+
+        async function advancePhaseInner(next, prevDay) {
+            let currentDay = prevDay;
             if (next === 1) {
                 const reopened = [];
                 stocks.forEach(s => {
@@ -651,7 +678,7 @@
             }
             else {
                 await addNewsEntry(`🌙 제${currentDay}일 장 마감. 정산을 진행합니다.`, 'info');
-                await processSettlement();
+                await processSettlement(currentDay);
                 currentDay += 1;
                 const b = writeBatch(db);
                 students.forEach(s => b.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { lastOrderDay: -1 }));
@@ -715,7 +742,7 @@
             for (const seat of owned) {
                 const std = students.find(x => x.id === seat.ownerId);
                 if (!std || !seat.weeklyIncome) continue;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: parseFloat((std.cash + seat.weeklyIncome).toFixed(1)) });
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: increment(seat.weeklyIncome) });
             }
             if (owned.length > 0) showToast(`🏠 부동산 주급 ${owned.length}건 지급 완료`);
         }
@@ -839,28 +866,26 @@
             const b = writeBatch(db);
             let touched = false;
             students.forEach(std => {
-                const h = { ...(std.holdings || {}) };
+                // 실시간 거래와 겹쳐도 다른 종목 보유분/현금을 덮어쓰지 않도록 해당 종목 필드만 삭제 + 현금은 increment
+                const upd = {};
                 let refund = 0;
-                let changed = false;
                 stocksList.forEach(stock => {
-                    const qty = h[stock.id]?.qty || 0;
+                    const qty = std.holdings?.[stock.id]?.qty || 0;
                     if (qty > 0) {
                         refund += qty * 0.1;
-                        delete h[stock.id];
-                        changed = true;
+                        upd[`holdings.${stock.id}`] = deleteField();
                     }
                 });
-                if (changed) {
-                    const nc = parseFloat((std.cash + refund).toFixed(1));
-                    b.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: nc, holdings: h });
+                if (Object.keys(upd).length > 0) {
+                    upd.cash = increment(parseFloat(refund.toFixed(1)));
+                    b.update(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), upd);
                     touched = true;
                 }
             });
             if (touched) await b.commit();
         }
 
-        async function processSettlement() {
-            const d = marketState.currentDay;
+        async function processSettlement(d) {
             if (d % 10 === 0) {
                 const divIds = ['SF', 'HA', 'MM'];
                 const divNames = divIds.map(id => stocks.find(x => x.id === id)?.name).filter(Boolean).join('/');
@@ -871,12 +896,13 @@
                         const stk = stocks.find(x => x.id === id);
                         if (s.holdings?.[id]?.qty > 0) { const v = stk.price * 0.05; if(v >= 0.1) total += v * s.holdings[id].qty; }
                     });
-                    if (total > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + total).toFixed(1)) });
+                    // 실시간 거래와 동시에 일어나도 거래 결과를 덮어쓰지 않도록 increment로 더하기만 함
+                    if (total > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: increment(parseFloat(total.toFixed(1))) });
                 });
             }
             if (d % 30 === 0) {
                 await addNewsEntry(`🏦 이자 지급일! 보유 현금에 이자가 지급되었습니다.`, 'good');
-                students.forEach(async s => { const i = s.cash * 0.1; if(i > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + i).toFixed(1)) }); });
+                students.forEach(async s => { const i = parseFloat((s.cash * 0.1).toFixed(1)); if(i > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: increment(i) }); });
             }
         }
 
@@ -979,9 +1005,8 @@
                             }
                         } else if (it.type === 'sell') {
                             if (h[stk.id]?.qty >= it.qty) {
-                                const profit = (stk.price - h[stk.id].avg) * it.qty;
-                                const tax = profit > 0 ? profit * 0.1 : 0;
-                                cash += (stk.price * it.qty) - tax;
+                                // (구버전 대기 주문 호환용) 실시간 거래와 동일하게 매도 금액의 10% 수수료
+                                cash += calcTrade('sell', stk, it.qty).net;
                                 h[stk.id].qty -= it.qty; if(h[stk.id].qty <= 0) delete h[stk.id];
                             } else {
                                 failed.push(`매도 실패 - ${stk.icon}${stk.name} ${it.qty}주 (현재 보유 ${h[stk.id]?.qty || 0}주)`);
@@ -1092,7 +1117,7 @@
             if (s?.holdings) {
                 Object.keys(s.holdings).forEach(id => {
                     const h = s.holdings[id], stk = stocks.find(x => x.id === id);
-                    if (h && h.qty > 0) {
+                    if (stk && h && h.qty > 0 && h.avg > 0) {
                         const y = ((stk.price - h.avg) / h.avg * 100).toFixed(1);
                         cont.innerHTML += `<div class="bg-slate-800/50 p-2 rounded-xl text-white text-[10px] flex justify-between"><span>${stk.icon} ${stk.name} ${h.qty}주</span><span class="${y>=0?'text-rose-500':'text-blue-400'} font-bold">${y>=0?'▲':'▼'} ${Math.abs(y)}%</span></div>`;
                     }
@@ -1247,73 +1272,138 @@
             cont.innerHTML = gachaPool.map(g => `<tr class="bg-slate-900/40 border border-slate-800 text-xs"><td class="p-2"><input value="${g.icon}" onchange="updateGachaItemField('${g.id}','icon',this.value)" class="w-12 bg-transparent text-center"></td><td class="p-2"><input value="${g.name}" onchange="updateGachaItemField('${g.id}','name',this.value)" class="bg-transparent w-full"></td><td class="p-2 text-center"><select onchange="updateGachaItemField('${g.id}','tier',this.value)" class="bg-slate-800 rounded px-1"><option value="normal" ${g.tier==='normal'?'selected':''}>일반</option><option value="rare" ${g.tier==='rare'?'selected':''}>레어</option><option value="elite" ${g.tier==='elite'?'selected':''}>정예</option></select></td><td class="p-2 text-center"><button onclick="deleteGachaItem('${g.id}')" class="bg-rose-900/50 text-rose-400 px-2 py-1 rounded text-[10px]">삭제</button></td></tr>`).join('') || '<tr><td colspan="4" class="text-center text-slate-600 py-6 italic">등록된 쿠폰이 없습니다.</td></tr>';
         }
         window.openStudentLoginModal = () => { document.getElementById('std-login-name').value = ''; document.getElementById('std-login-pw').value = ''; document.getElementById('modal-student-login').style.display = 'flex'; };
-        window.closePortal = () => { document.getElementById('modal-student-portal').style.display = 'none'; loggedInIdx = null; };
+        window.closePortal = () => { document.getElementById('modal-student-portal').style.display = 'none'; loggedInIdx = null; loggedInId = null; };
         window.loginStudent = () => {
             const n = document.getElementById('std-login-name').value, p = document.getElementById('std-login-pw').value;
             const idx = students.findIndex(s => s.name === n && s.password === p);
             document.getElementById('modal-student-login').style.display = 'none';
-            if (idx !== -1) { loggedInIdx = idx; openPortal(); } else showToast("정보가 틀렸습니다.");
+            if (idx !== -1) { loggedInIdx = idx; loggedInId = students[idx].id; openPortal(); } else showToast("정보가 틀렸습니다.");
         };
         window.openPortal = () => {
             const s = students[loggedInIdx];
             document.getElementById('portal-user-name').innerText = s.name;
             document.getElementById('portal-user-cash').innerText = `${s.cash.toFixed(1)} C`;
-            document.getElementById('portal-stock-list').innerHTML = stocks.map(st => `<option value="${st.id}" ${st.suspension > 0 ? 'disabled' : ''}>${st.icon} ${st.name} (${st.price}C) ${st.suspension>0?'[정지]':''}</option>`).join('');
-            const ls = document.getElementById('order-limit-status'), sb = document.getElementById('submit-basket-btn');
-            if (s.lastOrderDay === marketState.currentDay) { ls.innerText = "🚩 완료"; ls.className = "text-rose-500 font-bold"; sb.disabled = true; }
-            else { ls.innerText = "🟢 가능"; ls.className = "text-emerald-400 font-bold"; sb.disabled = false; }
-            basket = []; renderBasket(); renderInventory();
+            renderPortalStockOptions();
+            document.getElementById('portal-trade-qty').value = '';
+            renderTradePreview(); renderInventory();
             renderAssetOverview();
             switchPortalTab('trade');
             document.getElementById('modal-student-portal').style.display = 'flex';
         };
-        window.addToBasket = () => {
-            const s = students[loggedInIdx];
-            const type = document.getElementById('portal-trade-type').value;
-            const stockId = document.getElementById('portal-stock-list').value;
-            const qty = parseInt(document.getElementById('portal-trade-qty').value); 
-            if (!qty || qty <= 0) return;
-            
-            const stk = stocks.find(x => x.id === stockId);
-            if (stk.suspension > 0) return showToast("거래 정지된 종목입니다.");
+        // --- 실시간 주식 거래 (승인 없이 즉시 체결) ---
+        const SELL_FEE_RATE = 0.10; // 매도 시에만 거래금액의 10% 수수료
+        const round1 = (v) => Math.round(v * 10) / 10;
+        let tradeBusy = false;
 
-            // 매도 시 보유량 검증
-            if (type === 'sell') {
-                const holdingQty = s.holdings && s.holdings[stockId] ? s.holdings[stockId].qty : 0;
-                // 장바구니에 이미 담긴 동일 종목 매도 수량 합산
-                const alreadyInBasket = basket.filter(item => item.type === 'sell' && item.stockId === stockId).reduce((sum, item) => sum + item.qty, 0);
-                
-                if (holdingQty < qty + alreadyInBasket) {
-                    return showToast(`보유 수량이 부족합니다. (현재 보유: ${holdingQty}주)`);
-                }
-            } 
-            // 매수 시 현금 검증
-            else if (type === 'buy') {
-                const cost = stk.price * qty;
-                // 장바구니에 이미 담긴 매수 총액 합산
-                const alreadySpent = basket.filter(item => item.type === 'buy').reduce((sum, item) => {
-                    const bStk = stocks.find(x => x.id === item.stockId);
-                    return sum + (bStk.price * item.qty);
-                }, 0);
-                
-                if (s.cash < cost + alreadySpent) {
-                    return showToast("현금이 부족합니다.");
+        function renderPortalStockOptions() {
+            const sel = document.getElementById('portal-stock-list');
+            if (!sel) return;
+            const prev = sel.value;
+            sel.innerHTML = stocks.map(st => `<option value="${st.id}" ${st.suspension > 0 ? 'disabled' : ''}>${st.icon} ${st.name} (${st.price.toFixed(1)}C) ${st.suspension>0?'[정지]':''}</option>`).join('');
+            if (prev && stocks.some(st => st.id === prev && !(st.suspension > 0))) sel.value = prev;
+        }
+
+        function calcTrade(type, stk, qty) {
+            const gross = round1(stk.price * qty);
+            const fee = type === 'sell' ? round1(gross * SELL_FEE_RATE) : 0;
+            const net = type === 'sell' ? round1(gross - fee) : gross;
+            return { gross, fee, net };
+        }
+
+        window.renderTradePreview = () => {
+            const box = document.getElementById('trade-preview');
+            const btn = document.getElementById('submit-trade-btn');
+            const s = students[loggedInIdx];
+            if (!box || !btn || !s) return;
+            const type = document.getElementById('portal-trade-type').value;
+            const stk = stocks.find(x => x.id === document.getElementById('portal-stock-list').value);
+            const qty = parseInt(document.getElementById('portal-trade-qty').value);
+            const held = stk ? (s.holdings?.[stk.id]?.qty || 0) : 0;
+            const row = (k, v, c = '') => `<div class="flex justify-between"><span class="text-slate-500">${k}</span><span class="font-mono font-bold ${c}">${v}</span></div>`;
+            let html = '', ok = false, msg = '';
+            if (!stk) { msg = '종목을 선택하세요.'; }
+            else {
+                html += row('종목', `${stk.icon} ${stk.name}`) + row('현재가', `${stk.price.toFixed(1)} C`, 'text-amber-200') + row('보유 수량', `${held}주`);
+                if (stk.suspension > 0) msg = '거래 정지된 종목입니다.';
+                else if (!qty || qty <= 0) msg = '수량을 입력하세요.';
+                else {
+                    const t = calcTrade(type, stk, qty);
+                    if (type === 'buy') {
+                        html += row('매수 금액', `${t.gross.toFixed(1)} C`, 'text-blue-400') + row('수수료', '없음') + row('거래 후 현금', `${round1(s.cash - t.gross).toFixed(1)} C`, 'text-emerald-400');
+                        if (s.cash < t.gross) msg = `현금이 부족합니다. (보유 ${s.cash.toFixed(1)}C)`; else ok = true;
+                    } else {
+                        html += row('매도 금액', `${t.gross.toFixed(1)} C`) + row('수수료 (10%)', `- ${t.fee.toFixed(1)} C`, 'text-rose-400') + row('실제 받는 돈', `${t.net.toFixed(1)} C`, 'text-emerald-400');
+                        const avg = s.holdings?.[stk.id]?.avg;
+                        if (avg) { const pl = round1(t.net - avg * qty); html += row('예상 손익 (수수료 포함)', `${pl >= 0 ? '+' : ''}${pl.toFixed(1)} C`, pl >= 0 ? 'text-rose-400' : 'text-blue-400'); }
+                        if (held < qty) msg = `보유 수량이 부족합니다. (현재 보유: ${held}주)`; else ok = true;
+                    }
                 }
             }
+            if (msg) html += `<div class="pt-2 text-center text-amber-300 font-bold">${msg}</div>`;
+            box.innerHTML = html;
+            btn.disabled = !ok || tradeBusy;
+            btn.innerText = type === 'sell' ? '바로 매도하기' : '바로 매수하기';
+            btn.className = `w-full btn-action ${type === 'sell' ? 'bg-rose-600' : 'bg-blue-600'} py-3 text-xs disabled:opacity-50`;
+        };
 
-            basket.push({ type, stockId, stockName: stk.name, icon: stk.icon, qty });
-            renderBasket(); 
-            document.getElementById('portal-trade-qty').value = '';
+        window.fillMaxQty = () => {
+            const s = students[loggedInIdx];
+            const type = document.getElementById('portal-trade-type').value;
+            const stk = stocks.find(x => x.id === document.getElementById('portal-stock-list').value);
+            if (!s || !stk || stk.price <= 0) return;
+            const max = type === 'sell' ? (s.holdings?.[stk.id]?.qty || 0) : Math.max(0, Math.floor((s.cash + 1e-9) / stk.price));
+            document.getElementById('portal-trade-qty').value = max || '';
+            renderTradePreview();
         };
-        window.renderBasket = () => {
-            document.getElementById('basket-body').innerHTML = basket.map((it, i) => `<tr class="border-b border-slate-800 text-white text-[10px] text-white"><td class="${it.type==='buy'?'text-blue-400':'text-rose-400'}">${it.type==='buy'?'매수':'매도'}</td><td>${it.icon}${it.stockName}</td><td class="text-right">${it.qty}주</td><td class="text-center"><button onclick="basket.splice(${i},1);renderBasket();">×</button></td></tr>`).join('');
+
+        window.executeTrade = async () => {
+            if (tradeBusy) return;
+            const s = students[loggedInIdx];
+            if (!s) return;
+            const type = document.getElementById('portal-trade-type').value;
+            const stockId = document.getElementById('portal-stock-list').value;
+            const qty = parseInt(document.getElementById('portal-trade-qty').value);
+            if (!qty || qty <= 0) return showToast('수량을 입력하세요.');
+            tradeBusy = true; renderTradePreview();
+            try {
+                // 학생 문서와 종목 문서를 트랜잭션으로 함께 읽어서, "체결 순간"의 실제 시세/잔액/보유량 기준으로 처리
+                const result = await runTransaction(db, async (tx) => {
+                    const stdRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id);
+                    const stkRef = doc(db, 'artifacts', appId, 'public', 'data', 'stocks', stockId);
+                    const [stdSnap, stkSnap] = await Promise.all([tx.get(stdRef), tx.get(stkRef)]);
+                    if (!stdSnap.exists() || !stkSnap.exists()) throw new Error('데이터를 찾을 수 없습니다.');
+                    const std = stdSnap.data(), stk = stkSnap.data();
+                    if (stk.suspension > 0) throw new Error('거래 정지된 종목입니다.');
+                    const cash = std.cash || 0;
+                    const cur = std.holdings?.[stockId];
+                    const t = calcTrade(type, stk, qty);
+                    if (type === 'buy') {
+                        if (cash < t.gross) throw new Error(`현금이 부족합니다. (필요 ${t.gross.toFixed(1)}C, 보유 ${cash.toFixed(1)}C)`);
+                        const oldQty = cur?.qty || 0, oldAvg = cur?.avg || 0;
+                        const newQty = oldQty + qty;
+                        const newAvg = ((oldQty * oldAvg) + (stk.price * qty)) / newQty;
+                        tx.update(stdRef, { cash: round1(cash - t.gross), [`holdings.${stockId}`]: { qty: newQty, avg: newAvg } });
+                    } else {
+                        const oldQty = cur?.qty || 0;
+                        if (oldQty < qty) throw new Error(`보유 수량이 부족합니다. (현재 보유: ${oldQty}주)`);
+                        const left = oldQty - qty;
+                        tx.update(stdRef, { cash: round1(cash + t.net), [`holdings.${stockId}`]: left > 0 ? { qty: left, avg: cur.avg } : deleteField() });
+                    }
+                    return { stk, t };
+                });
+                const { stk, t } = result;
+                showToast(type === 'buy'
+                    ? `✅ ${stk.icon}${stk.name} ${qty}주 매수 완료 (-${t.gross.toFixed(1)}C)`
+                    : `✅ ${stk.icon}${stk.name} ${qty}주 매도 완료 (+${t.net.toFixed(1)}C, 수수료 ${t.fee.toFixed(1)}C)`);
+                document.getElementById('portal-trade-qty').value = '';
+            } catch (e) {
+                console.error('trade error:', e);
+                showToast(`⚠️ ${e.message || '거래 중 오류가 발생했습니다.'}`);
+            } finally {
+                tradeBusy = false; renderTradePreview();
+            }
         };
-        window.submitBasket = async () => {
-            const std = students[loggedInIdx];
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { studentId: std.id, studentName: std.name, type: 'multi', basket: [...basket], timestamp: Date.now() });
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { lastOrderDay: marketState.currentDay });
-            closePortal(); showToast("거래 신청 완료!");
-        };
+
         window.submitBankOrder = async () => {
             const type = document.getElementById('portal-bank-type').value;
             const qty = parseFloat(document.getElementById('portal-bank-qty').value);
