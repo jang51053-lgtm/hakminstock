@@ -113,6 +113,20 @@
         .login-gate { position: fixed; inset: 0; z-index: 95; background: linear-gradient(160deg, #00a862 0%, #00c27a 45%, #f2f4f6 45.1%); display: flex; align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto; }
         .login-gate.hidden-gate { display: none; }
         .gate-input { width: 100%; background: #f7f8fa; border: 1px solid #e5e8eb; border-radius: 0.9rem; padding: 0.9rem 1rem; font-size: 0.95rem; }
+        /* 의뢰사무소 */
+        .quest-card { background: #fff; border: 1px solid #e5e8eb; border-radius: 1.1rem; padding: 1.1rem; display: flex; flex-direction: column; gap: 0.7rem; transition: box-shadow 0.2s, border-color 0.2s; }
+        .quest-card:hover { border-color: #bfe9d3; box-shadow: 0 6px 18px rgba(0,168,98,0.08); }
+        .quest-card.is-mine { border-color: #00a862; }
+        .q-badge { font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+        .q-open { background: #e8f7ef; color: #008a50; }
+        .q-full { background: #fff4e0; color: #c76e00; }
+        .q-done { background: #eef0f3; color: #4e5968; }
+        .q-cancel { background: #fdecee; color: #e42939; }
+        .q-bar { height: 6px; border-radius: 99px; background: #eef0f3; overflow: hidden; }
+        .q-bar > span { display: block; height: 100%; background: #00a862; border-radius: 99px; transition: width 0.3s; }
+        .q-chip { font-size: 10px; font-weight: 700; background: #f2f4f6; color: #4e5968; border-radius: 99px; padding: 2px 8px; }
+        .q-chip.me { background: #e8f7ef; color: #008a50; }
+        .q-input { width: 100%; background: #f7f8fa; border: 1px solid #e5e8eb; border-radius: 0.75rem; padding: 0.6rem 0.8rem; font-size: 0.85rem; }
         /* 내 계좌 카드 */
         .acct-hero { background: linear-gradient(135deg, #00a862, #00c27a); color: #fff; border-radius: 1.25rem; }
         .acct-stat { background: #f7f8fa; border-radius: 0.9rem; padding: 0.75rem; }
@@ -166,6 +180,7 @@
 
             <div class="hidden md:flex gap-4 font-bold text-slate-400">
                 <div id="tab-market" onclick="switchView('market')" class="nav-tab active">시황 중계</div>
+                <div id="tab-quests" onclick="switchView('quests')" class="nav-tab whitespace-nowrap">👷 의뢰사무소 <span class="quest-open-count q-badge q-open hidden"></span></div>
                 <div id="tab-orders" onclick="switchView('orders')" class="nav-tab broker-only">📥 주문 승인</div>
                 <div id="tab-roster" onclick="switchView('roster')" class="nav-tab admin-only">모험가 관리</div>
                 <div id="tab-shopadmin" onclick="switchView('shopadmin')" class="nav-tab admin-only">마켓 관리</div>
@@ -187,6 +202,7 @@
         <!-- 작은 화면(태블릿 세로·휴대폰)용 탭: 기존에는 작은 화면에서 '내 계좌 확인' 버튼이 숨겨져 있었음 -->
         <div class="md:hidden flex gap-2 mt-3 overflow-x-auto text-xs font-bold text-slate-400">
             <div onclick="switchView('market')" class="nav-tab whitespace-nowrap">시황 중계</div>
+            <div onclick="switchView('quests')" class="nav-tab whitespace-nowrap">👷 의뢰사무소 <span class="quest-open-count q-badge q-open hidden"></span></div>
             <div onclick="switchView('orders')" class="nav-tab whitespace-nowrap broker-only">📥 주문 승인</div>
             <div onclick="switchView('roster')" class="nav-tab whitespace-nowrap admin-only">모험가 관리</div>
             <div onclick="switchView('shopadmin')" class="nav-tab whitespace-nowrap admin-only">마켓 관리</div>
@@ -218,6 +234,7 @@
                             <button onclick="openPortal()" class="btn-action bg-blue-600 py-3 text-sm">📈 주식 거래하기</button>
                             <button onclick="openPortal(); switchPortalTab('market')" class="btn-action bg-slate-800 py-3 text-sm">🏪 마켓 가기</button>
                         </div>
+                        <button onclick="switchView('quests')" class="w-full btn-action bg-emerald-900/10 border border-emerald-900/30 text-emerald-400 py-2.5 text-sm">👷 의뢰사무소 <span id="acct-quest-hint" class="ml-1 text-xs font-bold"></span></button>
                     </div>
                     <div class="lg:col-span-7">
                         <div class="flex items-baseline justify-between mb-1">
@@ -279,6 +296,60 @@
                     </div></div>
                 </section>
             </div>
+        </div>
+
+        <!-- 👷 의뢰사무소 -->
+        <div id="view-quests" class="hidden space-y-5">
+            <div class="fantasy-card p-5 flex flex-wrap items-center gap-4">
+                <div class="text-4xl">👷</div>
+                <div class="flex-1 min-w-[200px]">
+                    <h2 class="text-lg font-black">의뢰사무소</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">의뢰에 참여하고 일을 끝내면, 의뢰를 올린 사람이 <b>완료!</b>를 눌러 보상이 내 계좌로 들어와요. 인원이 다 차면 마감돼요.</p>
+                </div>
+                <div class="flex gap-2 text-center">
+                    <div class="acct-stat min-w-[72px]"><p class="text-[10px] text-slate-500 font-bold">모집 중</p><p id="quest-stat-open" class="font-black">0</p></div>
+                    <div class="acct-stat min-w-[72px]"><p class="text-[10px] text-slate-500 font-bold">내가 참여</p><p id="quest-stat-mine" class="font-black">-</p></div>
+                </div>
+            </div>
+
+            <!-- 의뢰 올리기: 관리자는 항상, 학생은 관리자가 허용했을 때만 -->
+            <div id="quest-form-card" class="fantasy-card p-5 hidden">
+                <div class="flex items-baseline justify-between mb-3">
+                    <h3 class="text-sm font-black text-blue-400 tracking-widest">📝 의뢰 올리기</h3>
+                    <span id="quest-form-who" class="text-[10px] text-slate-500 font-bold"></span>
+                </div>
+                <div id="quest-form-locked" class="hidden text-center py-6">
+                    <p class="text-3xl mb-2">🔒</p>
+                    <p class="text-sm font-bold">학생 의뢰 등록은 아직 준비 중이에요.</p>
+                    <p class="text-xs text-slate-500 mt-1">선생님이 열어주시면 내 계좌 돈으로 의뢰를 올릴 수 있어요.</p>
+                </div>
+                <form id="quest-form" class="grid grid-cols-1 md:grid-cols-12 gap-3" onsubmit="event.preventDefault(); postQuest();">
+                    <div class="md:col-span-5"><label class="text-[10px] text-slate-500 font-bold">오늘 업무</label><input id="quest-title" class="q-input" maxlength="40" placeholder="예: 급식 후 교실 바닥 쓸기"></div>
+                    <div class="md:col-span-7"><label class="text-[10px] text-slate-500 font-bold">자세한 설명 (선택)</label><input id="quest-desc" class="q-input" maxlength="100" placeholder="예: 점심시간 끝나고 10분, 빗자루는 사물함 옆"></div>
+                    <div class="md:col-span-3"><label class="text-[10px] text-slate-500 font-bold">보상 (1인당, C)</label><input id="quest-reward" type="number" min="0.1" step="0.1" class="q-input" placeholder="5" oninput="renderQuestCost()"></div>
+                    <div class="md:col-span-3"><label class="text-[10px] text-slate-500 font-bold">신청 인원</label><input id="quest-slots" type="number" min="1" max="30" step="1" class="q-input" placeholder="2" oninput="renderQuestCost()"></div>
+                    <div class="md:col-span-6 flex items-end gap-3">
+                        <p id="quest-cost" class="flex-1 text-[11px] text-slate-500 font-bold pb-2"></p>
+                        <button type="submit" class="btn-action bg-blue-600 px-6 py-2.5 text-sm whitespace-nowrap">의뢰 올리기</button>
+                    </div>
+                </form>
+            </div>
+
+            <div>
+                <h3 class="text-sm font-black text-blue-400 tracking-widest mb-3 px-1">📋 진행 중인 의뢰</h3>
+                <div id="quest-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+            </div>
+
+            <section id="fold-questdone" class="fold collapsed fantasy-card" data-default="collapsed">
+                <button type="button" class="fold-head" onclick="toggleFold('questdone')" aria-expanded="false">
+                    <span class="text-sm font-black tracking-widest whitespace-nowrap">✅ 끝난 의뢰</span>
+                    <span id="questdone-summary" class="fold-summary"></span>
+                    <span class="fold-chevron" aria-hidden="true">▼</span>
+                </button>
+                <div class="fold-body"><div>
+                    <div id="quest-done-list" class="px-5 pb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+                </div></div>
+            </section>
         </div>
 
         <div id="view-roster" class="hidden grid grid-cols-1 gap-6 text-white">
@@ -582,6 +653,13 @@
                     </div>
                     <input type="checkbox" id="settings-automode" onchange="toggleAutoMode(this.checked)" class="w-5 h-5">
                 </div>
+                <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div>
+                        <p class="text-xs font-bold">👷 학생 의뢰 등록 허용</p>
+                        <p class="text-[9px] text-slate-500">켜면 학생도 자기 계좌 돈으로 의뢰를 올릴 수 있음 (기본: 꺼짐)</p>
+                    </div>
+                    <input type="checkbox" id="settings-studentquest" onchange="toggleStudentQuest(this.checked)" class="w-5 h-5">
+                </div>
                 <div>
                     <label class="text-[10px] text-slate-500 font-bold uppercase">가챠 가격 (1회 / 10회)</label>
                     <div class="flex gap-2 mt-1">
@@ -640,6 +718,7 @@
         let gachaPool = [];
         let seats = [];
         let newsItems = [];
+        let quests = [];
 
         function getInitStocks() {
             return [
@@ -687,7 +766,7 @@
                 students = s.docs.map(d => ({ ...d.data(), id: d.id }));
                 if (loggedInId !== null) { const i = students.findIndex(x => x.id === loggedInId); if (i === -1) { logoutStudent(true); } else loggedInIdx = i; }
                 else tryResumeSession();
-                renderRankings(); renderAdminStudents();
+                renderRankings(); renderAdminStudents(); renderQuests();
                 if (loggedInIdx !== null) { renderMyAccount(); document.getElementById('portal-user-cash').innerText = `${students[loggedInIdx].cash.toFixed(1)} C`; renderInventory(); renderTradePreview(); renderAssetOverview(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); }
                 document.getElementById('loading-screen').style.display = 'none';
             });
@@ -712,6 +791,11 @@
                 seats = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (a.order||0) - (b.order||0));
                 renderSeatAdmin();
                 if (loggedInIdx !== null) { renderPortalSeats(); renderAssetOverview(); }
+            });
+
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'quests'), (s) => {
+                quests = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderQuests();
             });
 
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (s) => {
@@ -1079,6 +1163,7 @@
         }
 
         function updateUI() {
+            renderQuests();
             const pNames = ["[오전]", "[오후]", "[정산]"];
             const pStates = ["장 대기 중", "오전 종료 / 오후 대기", "오후 종료 / 정산 대기"];
             document.getElementById('display-date').innerText = `제 ${marketState.currentDay} 일 ${pNames[marketState.dayPhase]}`;
@@ -1329,6 +1414,7 @@
             if (!isAdmin) return;
             document.getElementById('settings-new-pw').value = '';
             document.getElementById('settings-automode').checked = !!marketState.autoMode;
+            document.getElementById('settings-studentquest').checked = !!marketState.studentQuestEnabled;
             const gc = marketState.gachaCost || { single: 5, ten: 45 };
             document.getElementById('settings-gacha-single').value = gc.single;
             document.getElementById('settings-gacha-ten').value = gc.ten;
@@ -1355,6 +1441,11 @@
             await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { autoMode: checked });
             showToast(checked ? "자동 진행이 켜졌습니다." : "자동 진행이 꺼졌습니다.");
         };
+        window.toggleStudentQuest = async (checked) => {
+            if (!isAdmin) return;
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { studentQuestEnabled: checked });
+            showToast(checked ? "학생 의뢰 등록이 열렸습니다." : "학생 의뢰 등록이 잠겼습니다.");
+        };
         window.saveGachaCost = async () => {
             if (!isAdmin) return;
             const single = parseFloat(document.getElementById('settings-gacha-single').value) || 0;
@@ -1367,6 +1458,9 @@
             if (v === 'shopadmin' && !isAdmin) v = 'market';
             if (v === 'orders' && !isAdmin && !isBroker) v = 'market';
             document.getElementById('view-market').classList.toggle('hidden', v !== 'market');
+            document.getElementById('view-quests').classList.toggle('hidden', v !== 'quests');
+            document.getElementById('tab-quests').classList.toggle('active', v === 'quests');
+            if (v === 'quests') renderQuests();
             document.getElementById('view-roster').classList.toggle('hidden', v !== 'roster');
             document.getElementById('view-orders').classList.toggle('hidden', v !== 'orders');
             document.getElementById('view-shopadmin').classList.toggle('hidden', v !== 'shopadmin');
@@ -1477,7 +1571,7 @@
             renderPortalStockOptions(); renderInventory(); renderAssetOverview(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); renderPortalShop(); renderPortalSeats();
             document.getElementById('portal-user-name').innerText = students[idx].name;
             document.getElementById('portal-user-cash').innerText = `${students[idx].cash.toFixed(1)} C`;
-            updateStudentChip(); renderMyAccount(); refreshGate();
+            updateStudentChip(); renderMyAccount(); refreshGate(); renderQuests();
             switchView('market');
         }
         function tryResumeSession() {
@@ -1494,7 +1588,7 @@
             document.getElementById('modal-student-portal').style.display = 'none';
             loggedInIdx = null; loggedInId = null;
             try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
-            updateStudentChip(); renderMyAccount(); refreshGate();
+            updateStudentChip(); renderMyAccount(); refreshGate(); renderQuests();
             if (!silent) showToast('로그아웃 되었습니다.');
         };
         window.loginStudent = () => {
@@ -1504,6 +1598,245 @@
             if (idx !== -1) { completeStudentLogin(idx); showToast(`${students[idx].name}님 환영합니다!`); }
             else showToast("이름 또는 비밀번호가 틀렸습니다.");
         };
+
+        // =========================================================
+        // 👷 의뢰사무소
+        //  - 관리자: 업무/보상/인원을 올리면 학생이 참여 → 관리자가 '완료!' 누르면 참여자 계좌로 보상 입금 (학급 금고에서 지급)
+        //  - 학생(관리자가 허용했을 때만): 보상×인원만큼 내 계좌에서 미리 빠져나감(보관금).
+        //    완료 시 참여자에게 지급하고 남은 자리 몫은 돌려받음. 취소하면 전액 환불.
+        //    현금이 부족하거나 빚(현금 마이너스)이 있으면 올릴 수 없음.
+        //  - 동시에 여러 명이 눌러도 인원이 넘치지 않도록 참여/완료는 모두 트랜잭션으로 처리
+        // =========================================================
+        const questRef = (id) => doc(db, 'artifacts', appId, 'public', 'data', 'quests', id);
+        const studentRef = (id) => doc(db, 'artifacts', appId, 'public', 'data', 'students', id);
+        const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        let questBusy = false;
+
+        function currentStudent() { return loggedInIdx !== null ? students[loggedInIdx] : null; }
+        function canManageQuest(q) {
+            if (isAdmin) return true;
+            const me = currentStudent();
+            return !!me && q.posterType === 'student' && q.posterId === me.id;
+        }
+
+        window.renderQuestCost = () => {
+            const box = document.getElementById('quest-cost');
+            if (!box) return;
+            const reward = parseFloat(document.getElementById('quest-reward').value);
+            const slots = parseInt(document.getElementById('quest-slots').value);
+            if (!(reward > 0) || !(slots > 0)) { box.innerText = ''; return; }
+            const total = round1(reward * slots);
+            if (isAdmin) { box.innerText = `완료 시 최대 ${total.toFixed(1)}C 지급 (학급 금고)`; return; }
+            const me = currentStudent();
+            const cash = me ? me.cash : 0;
+            box.innerHTML = `내 계좌에서 <b class="text-rose-500">${total.toFixed(1)}C</b>가 미리 빠져나가요 (보유 ${cash.toFixed(1)}C)` + (cash < total ? ' · <span class="text-rose-500">잔액 부족</span>' : '');
+        };
+
+        window.postQuest = async () => {
+            if (questBusy) return;
+            const title = document.getElementById('quest-title').value.trim();
+            const desc = document.getElementById('quest-desc').value.trim();
+            const reward = round1(parseFloat(document.getElementById('quest-reward').value));
+            const slots = parseInt(document.getElementById('quest-slots').value);
+            if (!title) return showToast('오늘 업무를 적어주세요.');
+            if (!(reward > 0)) return showToast('보상 금액을 적어주세요.');
+            if (!(slots >= 1 && slots <= 30)) return showToast('신청 인원은 1~30명으로 적어주세요.');
+            const me = currentStudent();
+            const base = { title, desc, reward, slots, participants: [], status: 'open', createdAt: Date.now(), day: marketState.currentDay || 0 };
+            questBusy = true;
+            try {
+                if (isAdmin) {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'quests'), { ...base, posterType: 'admin', posterId: 'admin', posterName: '선생님', escrow: 0 });
+                } else {
+                    if (!me) throw new Error('로그인이 필요합니다.');
+                    if (!marketState.studentQuestEnabled) throw new Error('학생 의뢰 등록은 아직 잠겨 있어요.');
+                    const total = round1(reward * slots);
+                    const newRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'quests'));
+                    await runTransaction(db, async (tx) => {
+                        const snap = await tx.get(studentRef(me.id));
+                        if (!snap.exists()) throw new Error('계좌를 찾을 수 없습니다.');
+                        const cash = snap.data().cash || 0;
+                        if (cash < 0) throw new Error('빚이 있어서 의뢰를 올릴 수 없어요.');
+                        if (cash < total) throw new Error(`잔액이 부족해요. (필요 ${total.toFixed(1)}C, 보유 ${cash.toFixed(1)}C)`);
+                        tx.update(studentRef(me.id), { cash: round1(cash - total) });
+                        tx.set(newRef, { ...base, posterType: 'student', posterId: me.id, posterName: me.name, escrow: total });
+                    });
+                }
+                ['quest-title', 'quest-desc', 'quest-reward', 'quest-slots'].forEach(id => document.getElementById(id).value = '');
+                renderQuestCost();
+                showToast('📝 의뢰를 올렸어요!');
+                addNewsEntry(`👷 [새 의뢰] ${isAdmin ? '선생님' : me.name} · "${title}" (1인당 ${reward.toFixed(1)}C, ${slots}명)`, 'info');
+            } catch (e) {
+                console.error('postQuest error:', e);
+                showToast(`⚠️ ${e.message || '의뢰를 올리지 못했어요.'}`);
+            } finally { questBusy = false; }
+        };
+
+        window.joinQuest = async (id) => {
+            const me = currentStudent();
+            if (!me) return showToast('학생으로 로그인해야 참여할 수 있어요.');
+            if (questBusy) return; questBusy = true;
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(questRef(id));
+                    if (!snap.exists()) throw new Error('없는 의뢰예요.');
+                    const q = snap.data();
+                    const list = q.participants || [];
+                    if (q.status !== 'open') throw new Error('이미 끝난 의뢰예요.');
+                    if (q.posterType === 'student' && q.posterId === me.id) throw new Error('내가 올린 의뢰에는 참여할 수 없어요.');
+                    if (list.some(p => p.id === me.id)) throw new Error('이미 참여했어요.');
+                    if (list.length >= q.slots) throw new Error('인원이 다 찼어요. (마감)');
+                    tx.update(questRef(id), { participants: [...list, { id: me.id, name: me.name, at: Date.now() }] });
+                });
+                showToast('🙋 의뢰에 참여했어요!');
+            } catch (e) { showToast(`⚠️ ${e.message}`); }
+            finally { questBusy = false; }
+        };
+
+        window.leaveQuest = async (id) => {
+            const me = currentStudent();
+            if (!me || questBusy) return;
+            if (!confirm('참여를 취소할까요?')) return;
+            questBusy = true;
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(questRef(id));
+                    if (!snap.exists()) throw new Error('없는 의뢰예요.');
+                    const q = snap.data();
+                    if (q.status !== 'open') throw new Error('이미 끝난 의뢰는 취소할 수 없어요.');
+                    tx.update(questRef(id), { participants: (q.participants || []).filter(p => p.id !== me.id) });
+                });
+                showToast('참여를 취소했어요.');
+            } catch (e) { showToast(`⚠️ ${e.message}`); }
+            finally { questBusy = false; }
+        };
+
+        window.completeQuest = async (id) => {
+            const q0 = quests.find(x => x.id === id);
+            if (!q0 || !canManageQuest(q0) || questBusy) return;
+            const n = (q0.participants || []).length;
+            if (!confirm(n > 0 ? `"${q0.title}" 완료!\n참여자 ${n}명에게 각각 ${q0.reward.toFixed(1)}C를 입금할까요?` : `참여자가 없어요. 그래도 완료 처리할까요?`)) return;
+            questBusy = true;
+            try {
+                const paid = await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(questRef(id));
+                    if (!snap.exists()) throw new Error('없는 의뢰예요.');
+                    const q = snap.data();
+                    if (q.status !== 'open') throw new Error('이미 처리된 의뢰예요.');
+                    const list = q.participants || [];
+                    // 트랜잭션 규칙: 모든 읽기를 쓰기보다 먼저
+                    const snaps = await Promise.all(list.map(p => tx.get(studentRef(p.id))));
+                    const posterSnap = q.posterType === 'student' ? await tx.get(studentRef(q.posterId)) : null;
+                    const payees = list.filter((p, i) => snaps[i].exists());
+                    payees.forEach(p => tx.update(studentRef(p.id), { cash: increment(q.reward) }));
+                    if (q.posterType === 'student' && posterSnap?.exists()) {
+                        const refund = round1((q.escrow || 0) - q.reward * payees.length);
+                        if (refund > 0) tx.update(studentRef(q.posterId), { cash: increment(refund) });
+                    }
+                    tx.update(questRef(id), { status: 'done', completedAt: Date.now(), paidCount: payees.length });
+                    return { q, payees };
+                });
+                showToast(`✅ 완료! ${paid.payees.length}명에게 보상을 입금했어요.`);
+                if (paid.payees.length > 0) addNewsEntry(`👷 [의뢰 완료] "${paid.q.title}" → ${paid.payees.map(p => p.name).join(', ')} 각 +${paid.q.reward.toFixed(1)}C`, 'good');
+            } catch (e) { showToast(`⚠️ ${e.message}`); }
+            finally { questBusy = false; }
+        };
+
+        window.cancelQuest = async (id) => {
+            const q0 = quests.find(x => x.id === id);
+            if (!q0 || !canManageQuest(q0) || questBusy) return;
+            if (!confirm(`"${q0.title}" 의뢰를 취소할까요?` + (q0.posterType === 'student' ? `\n${q0.posterName}에게 ${(q0.escrow || 0).toFixed(1)}C가 환불돼요.` : ''))) return;
+            questBusy = true;
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(questRef(id));
+                    if (!snap.exists()) throw new Error('없는 의뢰예요.');
+                    const q = snap.data();
+                    if (q.status !== 'open') throw new Error('이미 처리된 의뢰예요.');
+                    const posterSnap = q.posterType === 'student' ? await tx.get(studentRef(q.posterId)) : null;
+                    if (posterSnap?.exists() && (q.escrow || 0) > 0) tx.update(studentRef(q.posterId), { cash: increment(q.escrow) });
+                    tx.update(questRef(id), { status: 'canceled', completedAt: Date.now() });
+                });
+                showToast('의뢰를 취소했어요.');
+            } catch (e) { showToast(`⚠️ ${e.message}`); }
+            finally { questBusy = false; }
+        };
+
+        window.deleteQuest = async (id) => {
+            if (!isAdmin) return;
+            const q = quests.find(x => x.id === id);
+            if (!q || q.status === 'open') return;
+            if (!confirm('끝난 의뢰 기록을 지울까요?')) return;
+            await deleteDoc(questRef(id));
+        };
+
+        function questCardHTML(q) {
+            const me = currentStudent();
+            const list = q.participants || [];
+            const full = list.length >= q.slots;
+            const joined = !!me && list.some(p => p.id === me.id);
+            const mine = canManageQuest(q) && q.posterType === 'student';
+            const badge = q.status === 'done' ? '<span class="q-badge q-done">완료</span>'
+                : q.status === 'canceled' ? '<span class="q-badge q-cancel">취소됨</span>'
+                : full ? '<span class="q-badge q-full">마감</span>' : '<span class="q-badge q-open">모집 중</span>';
+            const poster = q.posterType === 'admin' ? '👩‍🏫 선생님' : `👤 ${esc(q.posterName)}`;
+            const pct = Math.min(100, Math.round(list.length / q.slots * 100));
+            const chips = list.length ? list.map(p => `<span class="q-chip ${me && p.id === me.id ? 'me' : ''}">${esc(p.name)}</span>`).join(' ') : '<span class="text-[10px] text-slate-500">아직 참여자가 없어요</span>';
+            let actions = '';
+            if (q.status === 'open') {
+                if (me && !(q.posterType === 'student' && q.posterId === me.id)) {
+                    if (joined) actions += `<button onclick="leaveQuest('${q.id}')" class="flex-1 btn-action bg-slate-800 py-2 text-xs">참여 취소</button>`;
+                    else if (!full) actions += `<button onclick="joinQuest('${q.id}')" class="flex-1 btn-action bg-blue-600 py-2 text-xs">🙋 참여하기</button>`;
+                    else actions += `<button disabled class="flex-1 bg-slate-800 py-2 rounded-xl text-xs font-bold text-slate-500 cursor-not-allowed">마감되었어요</button>`;
+                }
+                if (canManageQuest(q)) {
+                    actions += `<button onclick="completeQuest('${q.id}')" class="flex-1 btn-action bg-amber-600 py-2 text-xs">✅ 완료!</button>`;
+                    actions += `<button onclick="cancelQuest('${q.id}')" class="btn-action bg-slate-800 px-3 py-2 text-xs text-slate-500">취소</button>`;
+                }
+            } else if (isAdmin) {
+                actions += `<button onclick="deleteQuest('${q.id}')" class="btn-action bg-slate-800 px-3 py-2 text-[10px] text-slate-500 ml-auto">기록 지우기</button>`;
+            }
+            const doneNote = q.status === 'done' ? `<p class="text-[10px] text-slate-500">${q.paidCount ?? list.length}명에게 각 ${q.reward.toFixed(1)}C 지급됨</p>` : '';
+            return `<div class="quest-card ${joined || mine ? 'is-mine' : ''}">
+                <div class="flex items-center gap-2">${badge}<span class="text-[10px] text-slate-500 font-bold truncate">${poster} · 제${q.day || '-'}일</span></div>
+                <div><p class="font-black text-base leading-snug">${esc(q.title)}</p>${q.desc ? `<p class="text-xs text-slate-500 mt-1">${esc(q.desc)}</p>` : ''}</div>
+                <div class="flex items-end justify-between"><p class="text-[10px] text-slate-500 font-bold">💰 1인당 보상</p><p class="font-mono font-black text-lg text-emerald-400">${q.reward.toFixed(1)} C</p></div>
+                <div><div class="flex justify-between text-[10px] text-slate-500 font-bold mb-1"><span>신청 인원</span><span>${list.length} / ${q.slots}명</span></div><div class="q-bar"><span style="width:${pct}%"></span></div></div>
+                <div class="flex flex-wrap gap-1">${chips}</div>
+                ${doneNote}
+                ${actions ? `<div class="flex gap-2 mt-auto pt-1">${actions}</div>` : ''}
+            </div>`;
+        }
+
+        function renderQuests() {
+            const listEl = document.getElementById('quest-list');
+            if (!listEl) return;
+            const me = currentStudent();
+            const open = quests.filter(q => q.status === 'open');
+            const ended = quests.filter(q => q.status !== 'open').slice(0, 30);
+            const recruiting = open.filter(q => (q.participants || []).length < q.slots).length;
+
+            listEl.innerHTML = open.length
+                ? open.map(questCardHTML).join('')
+                : '<div class="fantasy-card p-10 text-center text-slate-500 text-sm md:col-span-2 xl:col-span-3">지금은 진행 중인 의뢰가 없어요.</div>';
+            document.getElementById('quest-done-list').innerHTML = ended.length ? ended.map(questCardHTML).join('') : '<p class="text-xs text-slate-500 py-4">아직 끝난 의뢰가 없어요.</p>';
+            document.getElementById('questdone-summary').innerText = ended.length ? `${ended.length}건` : '';
+
+            document.getElementById('quest-stat-open').innerText = recruiting;
+            document.getElementById('quest-stat-mine').innerText = me ? open.filter(q => (q.participants || []).some(p => p.id === me.id)).length : '-';
+            document.querySelectorAll('.quest-open-count').forEach(el => { el.innerText = recruiting; el.classList.toggle('hidden', recruiting === 0); });
+            const hint = document.getElementById('acct-quest-hint');
+            if (hint) hint.innerText = recruiting > 0 ? `모집 중 ${recruiting}건` : '';
+
+            // 의뢰 올리기 폼: 관리자 = 항상 / 학생 = 허용 시에만 (잠겨 있으면 안내만) / 거래소 담당만 로그인 = 숨김
+            const card = document.getElementById('quest-form-card');
+            const showCard = isAdmin || !!me;
+            card.classList.toggle('hidden', !showCard);
+            const locked = !isAdmin && !marketState.studentQuestEnabled;
+            document.getElementById('quest-form').classList.toggle('hidden', locked);
+            document.getElementById('quest-form-locked').classList.toggle('hidden', !locked);
+            document.getElementById('quest-form-who').innerText = isAdmin ? '선생님 의뢰 · 보상은 학급 금고에서 지급' : '학생 의뢰 · 보상은 내 계좌에서 미리 빠져나가요';
+        }
 
         // --- 첫 화면 '내 계좌' 카드 ---
         function renderMyAccount() {
@@ -2002,7 +2335,7 @@
                 const el = document.getElementById('fold-' + name);
                 if (el) setFold(name, el.classList.contains('collapsed'), true);
             };
-            ['chart', 'rank'].forEach(name => {
+            ['chart', 'rank', 'questdone'].forEach(name => {
                 let saved = null;
                 try { saved = localStorage.getItem(KEY + name); } catch (e) {}
                 const el = document.getElementById('fold-' + name);
