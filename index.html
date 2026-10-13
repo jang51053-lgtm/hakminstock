@@ -94,7 +94,7 @@
                                 <tr class="text-slate-500 text-[10px] border-b border-slate-800">
                                     <th class="pb-3">종목</th>
                                     <th class="pb-3 text-right">현재가</th>
-                                    <th class="pb-3 text-right">변동</th>
+                                    <th class="pb-3 text-right">변동<span class="block text-[9px] font-normal text-slate-500">직전 장 대비</span></th>
                                 </tr>
                             </thead>
                             <tbody id="stock-list-body"></tbody>
@@ -805,6 +805,8 @@
             const suspendedThisTick = []; // 이번 틱에 새로 하한가/거래정지된 종목들 (한꺼번에 모아서 일괄 청산 처리)
 
             stocks.forEach(s => {
+                // 등락표·결과 뉴스가 같은 기준(직전 장 가격)을 쓰도록 이동 전 가격을 저장
+                s.prevPrice = s.price;
                 if (s.suspension > 0) {
                     s.history[s.history.length-1] = s.price;
                 } else {
@@ -826,14 +828,21 @@
                     s.price = parseFloat(p.toFixed(1));
                     s.history[s.history.length-1] = s.price; // 현재 날짜의 그래프 포인트 업데이트
 
-                    const pct = ((s.price - oldPrice) / oldPrice) * 100;
+                    // 표시되는 가격(소수 첫째 자리 반올림 후) 기준으로 변동을 계산 → 등락표와 항상 일치
+                    const diffT = Math.round(s.price * 10) - Math.round(oldPrice * 10); // 0.1 단위 정수
+                    const pct = (diffT / 10) / oldPrice * 100;
                     if (Math.abs(pct) >= BIG_MOVE_THRESHOLD) {
                         bigMoves.push(`${pct >= 0 ? '🚀' : '📉'} ${s.icon} ${s.name} ${pct >= 0 ? '급등' : '급락'} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)`);
                     }
                     if (effect) {
-                        const wentUp = s.price > oldPrice;
-                        const matched = (wentUp && effect.dir === 'up') || (!wentUp && effect.dir === 'down');
-                        resultParts.push(`${s.icon}${s.name} ${matched ? '✅' : '❌'}${wentUp ? '상승' : '하락'}`);
+                        // 뉴스가 준 '암시'(호재/악재)와 실제 결과를 분리해서 보여준다
+                        const hint = effect.dir === 'up' ? '호재' : '악재';
+                        const actual = diffT > 0 ? '상승' : diffT < 0 ? '하락' : '보합';
+                        const arrow = diffT > 0 ? '▲' : diffT < 0 ? '▼' : '-';
+                        const pctTxt = `${diffT > 0 ? '+' : ''}${pct.toFixed(1)}%`;
+                        const matched = (diffT > 0 && effect.dir === 'up') || (diffT < 0 && effect.dir === 'down');
+                        const verdict = matched ? '예상대로' : '예상과 달리';
+                        resultParts.push(`${s.icon}${s.name}(${hint}) → ${verdict} ${actual} ${arrow}${Math.abs(diffT/10).toFixed(1)} (${pctTxt})`);
                     }
                 }
                 b.set(doc(db, 'artifacts', appId, 'public', 'data', 'stocks', s.id), s);
@@ -846,7 +855,7 @@
             if (suspendedThisTick.length > 0) await handleLiquidationBatch(suspendedThisTick);
 
             for (const t of suspendedNews) await addNewsEntry(t, 'bad');
-            if (resultParts.length > 0) await addNewsEntry(`📊 [결과] "${rumor.text}" → ${resultParts.join(', ')}`, 'info');
+            if (resultParts.length > 0) await addNewsEntry(`📊 [결과] "${rumor.text}" ${resultParts.join(' / ')}`, 'info');
             for (const t of bigMoves) await addNewsEntry(t, t.includes('급등') ? 'good' : 'bad');
 
             // 다음 페이즈를 위한 새 뉴스 이벤트 생성 (약 70% 확률)
@@ -1041,9 +1050,14 @@
 
         function renderStocks() {
             document.getElementById('stock-list-body').innerHTML = stocks.map(s => {
-                const diff = (s.price - s.basePrice).toFixed(1);
-                const color = diff >= 0 ? 'text-rose-500' : 'text-blue-500';
-                return `<tr class="border-b border-slate-800/50 text-white text-xs"><td class="py-3 font-bold">${s.icon} ${s.name} ${s.suspension > 0 ? '[정지]' : ''} <button onclick="showStockInfo('${s.id}')" class="ml-1 w-4 h-4 inline-flex items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[9px] align-middle hover:bg-slate-700 hover:text-white">i</button></td><td class="py-3 text-right font-mono font-bold text-amber-200">${s.price.toFixed(1)}</td><td class="py-3 text-right font-mono text-[10px] ${color}">${diff >= 0 ? '▲' : '▼'}${Math.abs(diff)}</td></tr>`;
+                // 직전 장 가격 대비 변동 (예전 데이터에 prevPrice가 없으면 basePrice 사용)
+                const ref = (typeof s.prevPrice === 'number') ? s.prevPrice : s.basePrice;
+                const diffT = Math.round(s.price * 10) - Math.round(ref * 10); // 0.1 단위 정수 → 부동소수점 오차 제거
+                const pct = ref > 0 ? (diffT / 10) / ref * 100 : 0;
+                const color = diffT > 0 ? 'text-rose-500' : diffT < 0 ? 'text-blue-500' : 'text-slate-400';
+                const mark = diffT > 0 ? '▲' : diffT < 0 ? '▼' : '-';
+                const changeTxt = diffT === 0 ? '0.0 (0.0%)' : `${mark}${Math.abs(diffT/10).toFixed(1)} (${diffT > 0 ? '+' : ''}${pct.toFixed(1)}%)`;
+                return `<tr class="border-b border-slate-800/50 text-white text-xs"><td class="py-3 font-bold">${s.icon} ${s.name} ${s.suspension > 0 ? '[정지]' : ''} <button onclick="showStockInfo('${s.id}')" class="ml-1 w-4 h-4 inline-flex items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[9px] align-middle hover:bg-slate-700 hover:text-white">i</button></td><td class="py-3 text-right font-mono font-bold text-amber-200">${s.price.toFixed(1)}</td><td class="py-3 text-right font-mono text-[10px] ${color}">${changeTxt}</td></tr>`;
             }).join('');
         }
         window.showStockInfo = (id) => {
