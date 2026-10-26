@@ -132,6 +132,46 @@
         .acct-stat { background: #f7f8fa; border-radius: 0.9rem; padding: 0.75rem; }
         .hold-row { display: grid; grid-template-columns: 1fr auto auto; gap: 0.75rem; align-items: center; padding: 0.7rem 0.25rem; border-bottom: 1px solid #f2f4f6; }
         .hold-row:last-child { border-bottom: 0; }
+        /* 🎱 색공 로또 */
+        .lt-nav-btn { font-size: 11px; font-weight: 900; padding: 6px 12px; border-radius: 99px; background: linear-gradient(135deg, #fff8dc, #ffe7a3); border: 1px solid #f2c94c; color: #8a5a00; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+        .lt-nav-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(242,201,76,0.4); }
+        .lt-nav-state { font-size: 9px; font-weight: 900; padding: 1px 6px; border-radius: 99px; background: #fff; color: #8b95a1; }
+        .lt-nav-state:empty { display: none; }
+        .lt-nav-state.on { background: #00a862; color: #fff; animation: lt-blink 1.6s ease-in-out infinite; }
+        @keyframes lt-blink { 50% { opacity: 0.55; } }
+        .lt-wrap { background: #fff; border-radius: 1.5rem; width: 100%; max-width: 980px; padding: 1.25rem; color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+        .lt-card { background: #f7f8fa; border: 1px solid #eef0f3; border-radius: 1.1rem; padding: 1rem; }
+        .lt-ball { width: 44px; height: 44px; flex-shrink: 0; border-radius: 99px; background: radial-gradient(circle at 32% 28%, #ffffff 0 9%, var(--c) 42%, var(--d) 100%); box-shadow: inset -3px -4px 6px rgba(0,0,0,0.18), 0 2px 5px rgba(0,0,0,0.15); display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; }
+        .lt-ball.lg { width: 56px; height: 56px; font-size: 15px; }
+        .lt-ball.sm { width: 22px; height: 22px; font-size: 10px; box-shadow: inset -2px -2px 3px rgba(0,0,0,0.18); }
+        .lt-ball.empty { background: #fff; border: 2px dashed #d1d6db; box-shadow: none; color: #b0b8c1; }
+        .lt-ball.pop { animation: lt-pop 0.5s ease; }
+        .lt-ball.hit { outline: 3px solid #00a862; outline-offset: 2px; }
+        .lt-ball.miss { opacity: 0.35; }
+        @keyframes lt-pop { 0% { transform: scale(0.2); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+        .lt-colorbtn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; border-radius: 1rem; background: #fff; border: 1px solid #e5e8eb; cursor: pointer; transition: transform 0.12s, border-color 0.12s; font-size: 11px; font-weight: 800; color: #4e5968; }
+        .lt-colorbtn:hover:not(:disabled) { transform: translateY(-2px); border-color: #00a862; }
+        .lt-colorbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .lt-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+        .lt-slot small { font-size: 10px; font-weight: 800; color: #8b95a1; }
+        .lt-btn { padding: 0.7rem 1rem; border-radius: 0.8rem; font-weight: 900; font-size: 13px; cursor: pointer; transition: filter 0.15s; white-space: nowrap; }
+        .lt-btn:hover:not(:disabled) { filter: brightness(0.95); }
+        .lt-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .lt-primary { background: #00a862; color: #fff; }
+        .lt-gold { background: linear-gradient(135deg, #f59f00, #f76707); color: #fff; }
+        .lt-blue { background: #1f6fe5; color: #fff; }
+        .lt-ghost { background: #eef0f3; color: #4e5968; }
+        .lt-rank { font-size: 11px; font-weight: 900; padding: 2px 9px; border-radius: 99px; white-space: nowrap; }
+        .lt-r1 { background: #fff1c2; color: #a35b00; }
+        .lt-r2 { background: #e8f0fe; color: #1f5fc4; }
+        .lt-r3 { background: #e8f7ef; color: #008a50; }
+        .lt-r0 { background: #eef0f3; color: #8b95a1; }
+        .lt-table { width: 100%; font-size: 12px; border-collapse: separate; border-spacing: 0 4px; }
+        .lt-table th { font-size: 10px; color: #8b95a1; font-weight: 800; text-align: left; padding: 0 8px; }
+        .lt-table td { background: #fff; padding: 6px 8px; }
+        .lt-table td:first-child { border-radius: 0.6rem 0 0 0.6rem; }
+        .lt-table td:last-child { border-radius: 0 0.6rem 0.6rem 0; }
+        .lt-input { width: 100%; background: #fff; border: 1px solid #e5e8eb; border-radius: 0.6rem; padding: 0.45rem 0.6rem; font-size: 0.85rem; }
     </style>
 </head>
 <body class="min-h-screen text-white">
@@ -176,6 +216,7 @@
                     <p class="hidden sm:block text-[9px] text-slate-500 font-bold tracking-widest uppercase mt-1">Cloud Integrated Production</p>
                 </div>
                 <a href="https://jang51053-lgtm.github.io/hakmin-gov/" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-block ml-2 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg font-bold border border-slate-700 whitespace-nowrap">🏛️ 학민정부 바로가기</a>
+                <button onclick="openLotto()" class="lt-nav-btn ml-1" title="색공 로또 열기">🎱 색공 로또<span id="lotto-nav-state" class="lt-nav-state"></span></button>
             </div>
 
             <div class="hidden md:flex gap-4 font-bold text-slate-400">
@@ -673,6 +714,50 @@
         </div>
     </div>
 
+    <!-- 🎱 색공 로또 모달 -->
+    <div id="modal-lotto" class="modal-overlay" onclick="if(event.target==this) closeLotto()">
+        <div class="lt-wrap">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-2xl">🎱</span>
+                    <h2 class="text-lg font-black">색공 로또</h2>
+                    <span id="lotto-round" class="text-xs font-bold text-slate-500"></span>
+                    <span id="lotto-status" class="q-badge"></span>
+                </div>
+                <button onclick="closeLotto()" class="text-2xl leading-none text-slate-500 px-2" aria-label="닫기">&times;</button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div class="lg:col-span-5 lt-card flex flex-col items-center">
+                    <canvas id="lotto-canvas" aria-label="색공 추첨 기계"></canvas>
+                    <div id="lotto-slots" class="flex gap-3 justify-center mt-2"></div>
+                    <p id="lotto-caption" class="text-xs font-bold text-slate-500 mt-3 text-center min-h-[1rem]"></p>
+                </div>
+                <div id="lotto-student" class="lg:col-span-7 space-y-3"></div>
+            </div>
+            <div id="lotto-admin" class="mt-4 space-y-3" style="display:none">
+                <div class="lt-card">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <h3 class="text-sm font-black">👩‍🏫 선생님 조종판</h3>
+                        <span class="text-[10px] text-slate-500 font-bold">관리자로 로그인했을 때만 보여요</span>
+                    </div>
+                    <div id="lotto-admin-buttons" class="flex flex-wrap gap-2"></div>
+                    <details class="mt-3">
+                        <summary class="text-xs font-bold cursor-pointer text-slate-500">⚙️ 응모비 · 당첨금 설정</summary>
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-2 items-end">
+                            <label class="text-[10px] font-bold text-slate-500">응모비(C)<input id="lotto-set-cost" type="number" min="0" step="0.1" class="lt-input mt-1"></label>
+                            <label class="text-[10px] font-bold text-slate-500">🥇 1등(C)<input id="lotto-set-p1" type="number" min="0" step="0.1" class="lt-input mt-1"></label>
+                            <label class="text-[10px] font-bold text-slate-500">🥈 2등(C)<input id="lotto-set-p2" type="number" min="0" step="0.1" class="lt-input mt-1"></label>
+                            <label class="text-[10px] font-bold text-slate-500">🥉 3등(C)<input id="lotto-set-p3" type="number" min="0" step="0.1" class="lt-input mt-1"></label>
+                            <button onclick="lottoSaveSettings()" class="lt-btn lt-ghost col-span-2 sm:col-span-1">저장</button>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-2">응모비는 학생이 처음 신청할 때 한 번만 빠져나가요 (마감 전 수정은 무료). 응모비는 아직 아무도 신청하지 않았을 때만 바꿀 수 있어요.</p>
+                    </details>
+                </div>
+                <div id="lotto-admin-live" class="lt-card"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- 가챠 연출 모달 -->
     <div id="modal-gacha-reveal" class="modal-overlay">
         <div class="bg-slate-950 border border-slate-800 rounded-3xl p-8 max-w-2xl w-full m-4 text-center relative">
@@ -766,7 +851,7 @@
                 students = s.docs.map(d => ({ ...d.data(), id: d.id }));
                 if (loggedInId !== null) { const i = students.findIndex(x => x.id === loggedInId); if (i === -1) { logoutStudent(true); } else loggedInIdx = i; }
                 else tryResumeSession();
-                renderRankings(); renderAdminStudents(); renderQuests();
+                renderRankings(); renderAdminStudents(); renderQuests(); renderLotto();
                 if (loggedInIdx !== null) { renderMyAccount(); document.getElementById('portal-user-cash').innerText = `${students[loggedInIdx].cash.toFixed(1)} C`; renderInventory(); renderTradePreview(); renderAssetOverview(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); }
                 document.getElementById('loading-screen').style.display = 'none';
             });
@@ -802,6 +887,8 @@
                 newsItems = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => b.timestamp - a.timestamp).slice(0, 60);
                 renderNews();
             });
+
+            initLottoSync();
         }
 
         async function initializeCloud() {
@@ -1163,7 +1250,7 @@
         }
 
         function updateUI() {
-            renderQuests();
+            renderQuests(); renderLotto();
             const pNames = ["[오전]", "[오후]", "[정산]"];
             const pStates = ["장 대기 중", "오전 종료 / 오후 대기", "오후 종료 / 정산 대기"];
             document.getElementById('display-date').innerText = `제 ${marketState.currentDay} 일 ${pNames[marketState.dayPhase]}`;
@@ -1571,7 +1658,7 @@
             renderPortalStockOptions(); renderInventory(); renderAssetOverview(); renderPortalCoupons(); renderPortalFragments(); renderGachaPityDisplay(); renderPortalShop(); renderPortalSeats();
             document.getElementById('portal-user-name').innerText = students[idx].name;
             document.getElementById('portal-user-cash').innerText = `${students[idx].cash.toFixed(1)} C`;
-            updateStudentChip(); renderMyAccount(); refreshGate(); renderQuests();
+            updateStudentChip(); renderMyAccount(); refreshGate(); renderQuests(); lottoPickRound = null; renderLotto();
             switchView('market');
         }
         function tryResumeSession() {
@@ -1588,7 +1675,7 @@
             document.getElementById('modal-student-portal').style.display = 'none';
             loggedInIdx = null; loggedInId = null;
             try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
-            updateStudentChip(); renderMyAccount(); refreshGate(); renderQuests();
+            updateStudentChip(); renderMyAccount(); refreshGate(); renderQuests(); lottoPickRound = null; renderLotto();
             if (!silent) showToast('로그아웃 되었습니다.');
         };
         window.loginStudent = () => {
@@ -2312,6 +2399,499 @@
                 });
             }, 1600);
         }
+
+        // =========================================================
+        // 🎱 색공 로또 (4가지 색 중 3개를 순서대로 · 같은 색 중복 가능)
+        //  - 학생: 색공 3개를 순서대로 골라 '신청하기' (마감 전까지 수정 가능, 응모비는 처음 신청할 때 한 번만)
+        //  - 교사(관리자)만: 새 회차 열기 / 마감 / 추첨 돌리기 / 당첨금 지급
+        //  - 추첨 결과는 버튼을 누르는 순간 정해져 DB에 먼저 저장 → 기계 애니메이션은 그 결과를 보여주기만 함
+        //    (새로고침하거나 다시 눌러도 결과가 바뀌지 않음)
+        //  - 등수: 같은 자리에 같은 색이 3개 = 1등, 2개 = 2등, 1개 = 3등
+        //  - 확률: 1등 1/64, 2등 9/64, 3등 27/64, 꽝 27/64
+        // =========================================================
+        const LOTTO_COLORS = {
+            R: { name: '빨강', short: '빨', c: '#ef4444', d: '#b91c1c', t: '#ffffff' },
+            B: { name: '파랑', short: '파', c: '#3b82f6', d: '#1d4ed8', t: '#ffffff' },
+            Y: { name: '노랑', short: '노', c: '#facc15', d: '#ca8a04', t: '#6b4e00' },
+            G: { name: '초록', short: '초', c: '#22c55e', d: '#15803d', t: '#ffffff' },
+        };
+        const LOTTO_KEYS = ['R', 'B', 'Y', 'G'];
+        const LOTTO_N = 3;
+        const LOTTO_DEFAULT = { cost: 2, prizes: { p1: 50, p2: 8, p3: 2 } };
+        const lottoStateRef = doc(db, 'artifacts', appId, 'public', 'data', 'lotto', 'state');
+        const lottoEntriesCol = collection(db, 'artifacts', appId, 'public', 'data', 'lottoEntries');
+        const lottoEntryRef = (round, sid) => doc(db, 'artifacts', appId, 'public', 'data', 'lottoEntries', `${round}_${sid}`);
+        let lottoState = { round: 0, status: 'none', drawn: [] };
+        let lottoEntriesAll = [];
+        let lottoPick = [];
+        let lottoPickRound = null;
+        let lottoBusy = false;
+        let lottoAnim = null;          // 추첨 애니메이션 진행 중이면 { revealed: 공개된 공 수 }
+        let lottoSeenDrawKey = undefined;
+        let lottoOpen = false;
+
+        const lottoWait = (ms) => new Promise(r => setTimeout(r, ms));
+        function lottoBallHTML(k, size = '', extra = '') {
+            if (!k) return `<span class="lt-ball empty ${size} ${extra}">?</span>`;
+            const m = LOTTO_COLORS[k];
+            return `<span class="lt-ball ${size} ${extra}" style="--c:${m.c};--d:${m.d};color:${m.t}" title="${m.name}">${m.short}</span>`;
+        }
+        function lottoMatches(pick, drawn) { let n = 0; for (let i = 0; i < LOTTO_N; i++) if (pick?.[i] && pick[i] === drawn?.[i]) n++; return n; }
+        function lottoRank(pick, drawn) { const m = lottoMatches(pick, drawn); return m === 3 ? 1 : m === 2 ? 2 : m === 1 ? 3 : 0; }
+        function lottoRankLabel(r) { return r === 1 ? '🥇 1등' : r === 2 ? '🥈 2등' : r === 3 ? '🥉 3등' : '꽝'; }
+        function lottoRoundEntries() { return lottoEntriesAll.filter(e => e.round === lottoState.round); }
+        function lottoPrizes() { return { ...LOTTO_DEFAULT.prizes, ...(lottoState.prizes || {}) }; }
+        function lottoCost() { return lottoState.cost ?? LOTTO_DEFAULT.cost; }
+        function lottoDrawKey(s) { return s && s.status === 'drawn' ? `${s.round}:${s.drawnAt}` : null; }
+        function lottoResultReady() { return lottoState.status === 'drawn' && !lottoAnim; }
+        function lottoMyEntry() { const me = currentStudent(); return me ? lottoRoundEntries().find(e => e.studentId === me.id) : null; }
+
+        function initLottoSync() {
+            onSnapshot(lottoStateRef, (s) => {
+                lottoState = s.exists() ? { round: 0, status: 'none', drawn: [], ...s.data() } : { round: 0, status: 'none', drawn: [] };
+                const key = lottoDrawKey(lottoState);
+                if (lottoSeenDrawKey === undefined) lottoSeenDrawKey = key;   // 처음 불러올 때는 이미 끝난 추첨을 다시 돌리지 않음
+                else if (key && key !== lottoSeenDrawKey) {
+                    lottoSeenDrawKey = key;
+                    if (lottoOpen) playLottoDraw(lottoState.drawn);          // 창을 열어 둔 모든 화면에서 같이 돌아감
+                }
+                renderLotto();
+            }, (err) => console.error('lotto state error:', err));
+            onSnapshot(lottoEntriesCol, (s) => {
+                lottoEntriesAll = s.docs.map(d => ({ ...d.data(), id: d.id }));
+                renderLotto();
+            }, (err) => console.error('lotto entries error:', err));
+        }
+
+        // ---------- 화면 그리기 ----------
+        function renderLotto() {
+            const st = lottoState.status;
+            const nav = document.getElementById('lotto-nav-state');
+            if (nav) {
+                nav.textContent = st === 'open' ? '응모 중' : st === 'closed' ? '마감' : st === 'drawn' ? '결과' : '';
+                nav.className = 'lt-nav-state' + (st === 'open' ? ' on' : '');
+            }
+            if (!lottoOpen) return;
+            if (lottoPickRound !== lottoState.round) { lottoPick = []; lottoPickRound = lottoState.round; const mine = lottoMyEntry(); if (mine) lottoPick = [...mine.pick]; }
+            document.getElementById('lotto-round').textContent = lottoState.round ? `제 ${lottoState.round}회` : '';
+            const sb = document.getElementById('lotto-status');
+            const stMap = { none: ['준비 중', 'q-done'], open: ['응모 중', 'q-open'], closed: ['마감 · 추첨 대기', 'q-full'], drawn: [lottoAnim ? '추첨 중…' : '결과 발표', 'q-cancel'] };
+            const [txt, cls] = stMap[st] || stMap.none;
+            sb.textContent = txt; sb.className = `q-badge ${cls}`;
+            renderLottoSlots();
+            renderLottoStudent();
+            renderLottoAdmin();
+        }
+
+        function renderLottoSlots(popIdx = -1) {
+            const box = document.getElementById('lotto-slots');
+            if (!box) return;
+            const revealed = lottoAnim ? lottoAnim.revealed : (lottoState.status === 'drawn' ? LOTTO_N : 0);
+            let html = '';
+            for (let i = 0; i < LOTTO_N; i++) {
+                const k = i < revealed ? lottoState.drawn[i] : null;
+                html += `<div class="lt-slot" style="cursor:default">${lottoBallHTML(k, 'lg', i === popIdx ? 'pop' : '')}<small>${i + 1}번째</small></div>`;
+            }
+            box.innerHTML = html;
+            if (!lottoAnim) {
+                const cap = document.getElementById('lotto-caption');
+                cap.textContent = lottoState.status === 'drawn' ? `당첨 공: ${lottoState.drawn.map(k => LOTTO_COLORS[k].name).join(' → ')}`
+                    : lottoState.status === 'closed' ? '응모가 마감됐어요. 곧 기계가 돌아가요!'
+                    : lottoState.status === 'open' ? '빨강·파랑·노랑·초록 공이 6개씩 들어 있어요.' : '';
+            }
+        }
+
+        function lottoProbHTML() {
+            return `<details class="lt-card text-xs">
+                <summary class="font-black cursor-pointer">🎲 당첨 확률은 얼마나 될까?</summary>
+                <p class="text-slate-500 mt-2 leading-relaxed">한 자리에서 색을 맞힐 확률은 4가지 중 1가지, 즉 <b>1/4</b>이에요. 꺼낸 공은 다시 기계에 넣기 때문에 같은 색이 또 나올 수 있어요. 그래서 나올 수 있는 결과는 모두 4 × 4 × 4 = <b>64가지</b>예요.</p>
+                <div class="grid grid-cols-4 gap-2 mt-2 text-center">
+                    <div class="bg-white rounded-lg p-2"><p class="lt-rank lt-r1 inline-block">1등</p><p class="font-mono font-black mt-1">1/64</p><p class="text-[10px] text-slate-500">3개 모두</p></div>
+                    <div class="bg-white rounded-lg p-2"><p class="lt-rank lt-r2 inline-block">2등</p><p class="font-mono font-black mt-1">9/64</p><p class="text-[10px] text-slate-500">2개 일치</p></div>
+                    <div class="bg-white rounded-lg p-2"><p class="lt-rank lt-r3 inline-block">3등</p><p class="font-mono font-black mt-1">27/64</p><p class="text-[10px] text-slate-500">1개 일치</p></div>
+                    <div class="bg-white rounded-lg p-2"><p class="lt-rank lt-r0 inline-block">꽝</p><p class="font-mono font-black mt-1">27/64</p><p class="text-[10px] text-slate-500">0개</p></div>
+                </div>
+            </details>`;
+        }
+
+        function lottoWinnersHTML() {
+            if (!lottoResultReady()) return '';
+            const entries = lottoRoundEntries();
+            const pr = lottoPrizes();
+            const groups = [1, 2, 3].map(r => ({ r, names: entries.filter(e => lottoRank(e.pick, lottoState.drawn) === r).map(e => esc(e.studentName)) }));
+            return `<div class="lt-card">
+                <h3 class="text-sm font-black mb-2">🏆 제 ${lottoState.round}회 당첨자 <span class="text-[10px] text-slate-500 font-bold">(${entries.length}명 응모${lottoState.paid ? ' · 당첨금 지급 완료' : ''})</span></h3>
+                <div class="space-y-2">${groups.map(g => `<div class="flex items-start gap-2"><span class="lt-rank lt-r${g.r}">${lottoRankLabel(g.r)} · ${pr['p' + g.r]}C</span><span class="text-xs font-bold leading-6">${g.names.length ? g.names.join(', ') : '<span class="text-slate-500">없음</span>'}</span></div>`).join('')}</div>
+            </div>`;
+        }
+
+        function renderLottoStudent() {
+            const box = document.getElementById('lotto-student');
+            const st = lottoState.status;
+            const me = currentStudent();
+            const mine = lottoMyEntry();
+            const pr = lottoPrizes();
+            let main = '';
+
+            if (st === 'none') {
+                main = `<div class="lt-card text-center py-8"><p class="text-3xl mb-2">🎱</p><p class="font-black">아직 열린 로또가 없어요</p><p class="text-xs text-slate-500 mt-1">선생님이 회차를 열면 신청할 수 있어요.</p></div>`;
+            } else if (lottoAnim) {
+                main = `<div class="lt-card text-center py-8"><p class="text-3xl mb-2">🌀</p><p class="font-black">기계가 돌아가는 중…</p>${mine ? `<p class="text-xs text-slate-500 mt-3">내 공</p><div class="flex gap-2 justify-center mt-1">${mine.pick.map(k => lottoBallHTML(k)).join('')}</div>` : ''}</div>`;
+            } else if (st === 'drawn') {
+                if (mine) {
+                    const r = lottoRank(mine.pick, lottoState.drawn);
+                    const m = lottoMatches(mine.pick, lottoState.drawn);
+                    main = `<div class="lt-card text-center py-5">
+                        <p class="text-xs font-bold text-slate-500">내가 고른 공</p>
+                        <div class="flex gap-3 justify-center mt-2">${mine.pick.map((k, i) => lottoBallHTML(k, 'lg', k === lottoState.drawn[i] ? 'hit' : 'miss')).join('')}</div>
+                        <p class="text-[11px] text-slate-500 mt-2">초록 테두리 = 같은 자리에 같은 색 (${m}개 일치)</p>
+                        <p class="mt-3"><span class="lt-rank lt-r${r} text-base px-4 py-1">${r ? `${lottoRankLabel(r)} · ${pr['p' + r]}C` : '아쉽게도 꽝!'}</span></p>
+                        ${r && !lottoState.paid ? '<p class="text-[11px] text-slate-500 mt-2">선생님이 당첨금을 지급하면 계좌로 들어와요.</p>' : ''}
+                    </div>`;
+                } else if (isAdmin && !me) main = `<div class="lt-card text-center py-6"><p class="font-black">👩‍🏫 결과가 나왔어요!</p><p class="text-xs text-slate-500 mt-1">${lottoState.paid ? '당첨금 지급까지 끝났어요.' : '아래 집계판에서 확인한 뒤 💰 당첨금 지급을 눌러 주세요.'}</p></div>`;
+                else main = `<div class="lt-card text-center py-6"><p class="font-black">이번 회차는 신청하지 않았어요</p><p class="text-xs text-slate-500 mt-1">다음 회차를 기다려 주세요!</p></div>`;
+            } else if (!me) {
+                main = `<div class="lt-card text-center py-8"><p class="font-black">${isAdmin ? '👩‍🏫 선생님 화면이에요' : '로그인하면 신청할 수 있어요'}</p><p class="text-xs text-slate-500 mt-1">${isAdmin ? '학생 신청은 아래 집계판에 실시간으로 올라와요.' : ''}</p></div>`;
+            } else if (st === 'closed') {
+                main = `<div class="lt-card text-center py-6">${mine
+                    ? `<p class="text-xs font-bold text-slate-500">내가 고른 공 (확정)</p><div class="flex gap-3 justify-center mt-2">${mine.pick.map(k => lottoBallHTML(k, 'lg')).join('')}</div><p class="text-xs text-slate-500 mt-3">응모 마감! 선생님이 기계를 돌릴 때까지 기다려요.</p>`
+                    : `<p class="font-black">응모가 마감됐어요</p><p class="text-xs text-slate-500 mt-1">이번 회차는 신청하지 못했어요.</p>`}</div>`;
+            } else {
+                // 응모 중: 색 고르기
+                const full = lottoPick.length >= LOTTO_N;
+                const same = mine && mine.pick.join('') === lottoPick.join('');
+                const cost = lottoCost();
+                let slots = '';
+                for (let i = 0; i < LOTTO_N; i++) slots += `<div class="lt-slot" onclick="lottoRemoveAt(${i})" title="눌러서 빼기">${lottoBallHTML(lottoPick[i], 'lg')}<small>${i + 1}번째</small></div>`;
+                main = `<div class="lt-card">
+                    <div class="flex items-baseline justify-between gap-2 mb-1">
+                        <h3 class="text-sm font-black">① 색공 3개를 순서대로 고르기</h3>
+                        <span class="text-[10px] text-slate-500 font-bold">같은 색을 또 골라도 돼요</span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 mt-2">${LOTTO_KEYS.map(k => `<button class="lt-colorbtn" onclick="lottoAddColor('${k}')" ${full ? 'disabled' : ''}>${lottoBallHTML(k, 'lg')}${LOTTO_COLORS[k].name}</button>`).join('')}</div>
+                    <h3 class="text-sm font-black mt-4">② 내가 고른 순서 <span class="text-[10px] text-slate-500 font-bold">(공을 누르면 빠져요)</span></h3>
+                    <div class="flex gap-4 justify-center mt-2">${slots}</div>
+                    <div class="flex gap-2 mt-4">
+                        <button class="lt-btn lt-ghost" onclick="lottoClearPick()" ${lottoPick.length ? '' : 'disabled'}>다시 고르기</button>
+                        <button class="lt-btn lt-primary flex-1" onclick="lottoSubmit()" ${full && !same && !lottoBusy ? '' : 'disabled'}>${mine ? (same ? '✅ 신청 완료' : '✏️ 이걸로 수정하기') : `🎟️ 신청하기${cost > 0 ? ` (응모비 ${cost}C)` : ''}`}</button>
+                    </div>
+                    ${mine ? `<p class="text-[11px] text-slate-500 mt-2">✅ 신청됨: ${mine.pick.map(k => LOTTO_COLORS[k].name).join(' → ')} · 마감 전까지 무료로 바꿀 수 있어요.</p>` : `<p class="text-[11px] text-slate-500 mt-2">내 현금: ${me.cash.toFixed(1)}C</p>`}
+                </div>
+                <div class="lt-card text-xs"><span class="font-black">상금</span> <span class="lt-rank lt-r1 ml-1">1등 ${pr.p1}C</span> <span class="lt-rank lt-r2">2등 ${pr.p2}C</span> <span class="lt-rank lt-r3">3등 ${pr.p3}C</span><p class="text-[11px] text-slate-500 mt-2">같은 자리에 같은 색이 3개면 1등, 2개면 2등, 1개면 3등이에요.</p></div>`;
+            }
+            box.innerHTML = main + lottoWinnersHTML() + lottoProbHTML();
+        }
+
+        function renderLottoAdmin() {
+            const wrap = document.getElementById('lotto-admin');
+            wrap.style.display = isAdmin ? 'block' : 'none';
+            if (!isAdmin) return;
+            const st = lottoState.status;
+            const busy = !!lottoAnim || lottoBusy;
+            const canPay = st === 'drawn' && !lottoState.paid && !lottoAnim;
+            document.getElementById('lotto-admin-buttons').innerHTML = `
+                <button class="lt-btn lt-primary" onclick="lottoOpenRound()" ${(st === 'none' || st === 'drawn') && !busy ? '' : 'disabled'}>🆕 새 회차 열기</button>
+                ${st === 'closed'
+                    ? `<button class="lt-btn lt-ghost" onclick="lottoReopen()" ${busy ? 'disabled' : ''}>↩️ 마감 취소</button>`
+                    : `<button class="lt-btn lt-blue" onclick="lottoClose()" ${st === 'open' && !busy ? '' : 'disabled'}>🔒 응모 마감</button>`}
+                <button class="lt-btn lt-gold" onclick="lottoDrawNow()" ${st === 'closed' && !busy ? '' : 'disabled'}>🎰 추첨 돌리기</button>
+                <button class="lt-btn lt-primary" onclick="lottoPay()" ${canPay && !busy ? '' : 'disabled'}>${st === 'drawn' && lottoState.paid ? '✅ 지급 완료' : '💰 당첨금 지급'}</button>`;
+
+            const entries = lottoRoundEntries();
+            const ready = lottoResultReady();
+            const pr = lottoPrizes();
+            const rows = entries.map(e => ({ e, r: ready ? lottoRank(e.pick, lottoState.drawn) : null }))
+                .sort((a, b) => ready ? ((a.r || 9) - (b.r || 9)) || (a.e.createdAt - b.e.createdAt) : (a.e.createdAt || 0) - (b.e.createdAt || 0));
+            const missing = students.filter(s => !entries.some(e => e.studentId === s.id)).map(s => esc(s.name));
+            // 자리별 색깔 인기 집계
+            const counts = Array.from({ length: LOTTO_N }, (_, i) => LOTTO_KEYS.map(k => entries.filter(e => e.pick[i] === k).length));
+            const totalPay = ready ? rows.reduce((t, x) => t + (x.r ? pr['p' + x.r] : 0), 0) : 0;
+            const income = entries.reduce((t, e) => t + (Number(e.paidCost) || 0), 0);
+            const fmtT = (ts) => ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+
+            document.getElementById('lotto-admin-live').innerHTML = st === 'none' ? '<p class="text-xs text-slate-500">회차를 열면 학생 신청이 여기에 실시간으로 올라와요.</p>' : `
+                <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+                    <h3 class="text-sm font-black">📊 실시간 집계 <span class="text-[10px] text-slate-500 font-bold">제 ${lottoState.round}회</span></h3>
+                    <span class="text-xs font-black"><span class="text-emerald-400">${entries.length}</span> / ${students.length}명 신청 · 응모비 수입 ${income.toFixed(1)}C${ready ? ` · 지급할 당첨금 ${totalPay.toFixed(1)}C` : ''}</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <div class="md:col-span-8 max-h-80 overflow-y-auto custom-scrollbar">
+                        <table class="lt-table">
+                            <thead><tr><th>#</th><th>이름</th><th>고른 공</th><th>${ready ? '결과' : '신청 시각'}</th></tr></thead>
+                            <tbody>${rows.length ? rows.map((x, i) => `<tr>
+                                <td class="text-slate-500 font-mono">${i + 1}</td>
+                                <td class="font-bold">${esc(x.e.studentName)}</td>
+                                <td><div class="flex gap-1">${x.e.pick.map((k, j) => lottoBallHTML(k, 'sm', ready ? (k === lottoState.drawn[j] ? 'hit' : 'miss') : '')).join('')}</div></td>
+                                <td>${ready ? `<span class="lt-rank lt-r${x.r}">${lottoRankLabel(x.r)}${x.r ? ` +${pr['p' + x.r]}C` : ''}</span>` : `<span class="text-[11px] text-slate-500 font-mono">${fmtT(x.e.updatedAt || x.e.createdAt)}${x.e.updatedAt && x.e.updatedAt !== x.e.createdAt ? ' (수정)' : ''}</span>`}</td>
+                            </tr>`).join('') : '<tr><td colspan="4" class="text-center text-slate-500 py-4">아직 신청한 학생이 없어요.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                    <div class="md:col-span-4 space-y-3">
+                        <div class="bg-white rounded-xl p-3">
+                            <p class="text-[11px] font-black mb-2">자리별 인기 색깔</p>
+                            ${counts.map((row, i) => `<div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-slate-500 w-10">${i + 1}번째</span>${LOTTO_KEYS.map((k, j) => `<span class="flex items-center gap-0.5">${lottoBallHTML(k, 'sm')}<b class="text-[11px] font-mono w-4">${row[j]}</b></span>`).join('')}</div>`).join('')}
+                        </div>
+                        <div class="bg-white rounded-xl p-3">
+                            <p class="text-[11px] font-black mb-1">아직 안 한 학생 (${missing.length}명)</p>
+                            <p class="text-[11px] text-slate-500 leading-relaxed">${missing.length ? missing.join(', ') : '모두 신청했어요! 🎉'}</p>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // ---------- 학생 동작 ----------
+        window.lottoAddColor = (k) => {
+            if (lottoState.status !== 'open' || !LOTTO_COLORS[k]) return;
+            if (lottoPick.length >= LOTTO_N) return showToast('3개를 다 골랐어요. 공을 눌러 빼고 다시 골라요.');
+            lottoPick.push(k); renderLottoStudent();
+        };
+        window.lottoRemoveAt = (i) => { if (lottoState.status !== 'open') return; if (i < lottoPick.length) { lottoPick.splice(i, 1); renderLottoStudent(); } };
+        window.lottoClearPick = () => { lottoPick = []; renderLottoStudent(); };
+        window.lottoSubmit = async () => {
+            const me = currentStudent();
+            if (!me) return showToast('먼저 로그인하세요.');
+            if (lottoState.status !== 'open') return showToast('지금은 신청할 수 없어요.');
+            if (lottoPick.length !== LOTTO_N) return showToast(`색공 ${LOTTO_N}개를 모두 골라 주세요.`);
+            if (lottoBusy) return;
+            lottoBusy = true; renderLottoStudent();
+            const round = lottoState.round, pick = [...lottoPick];
+            try {
+                const res = await runTransaction(db, async (tx) => {
+                    const ls = (await tx.get(lottoStateRef)).data();
+                    if (!ls || ls.status !== 'open' || ls.round !== round) throw new Error('closed');
+                    const eRef = lottoEntryRef(round, me.id);
+                    const eSnap = await tx.get(eRef);
+                    const sRef = studentRef(me.id);
+                    const sSnap = await tx.get(sRef);
+                    if (!sSnap.exists()) throw new Error('nostudent');
+                    const now = Date.now();
+                    if (eSnap.exists()) { tx.update(eRef, { pick, updatedAt: now, studentName: me.name }); return { edited: true }; }
+                    const cost = Number(ls.cost ?? LOTTO_DEFAULT.cost) || 0;
+                    if (cost > 0) {
+                        const cash = Number(sSnap.data().cash) || 0;
+                        if (cash < cost) throw new Error('cash');
+                        tx.update(sRef, { cash: parseFloat((cash - cost).toFixed(1)) });
+                    }
+                    tx.set(eRef, { round, studentId: me.id, studentName: me.name, pick, createdAt: now, updatedAt: now, paidCost: cost });
+                    return { edited: false, cost };
+                });
+                showToast(res.edited ? '✏️ 고른 공을 바꿨어요!' : `🎟️ 신청 완료!${res.cost ? ` (응모비 ${res.cost}C)` : ''}`);
+            } catch (e) {
+                const msg = { closed: '응모가 마감됐어요.', cash: '현금이 부족해요.', nostudent: '학생 정보를 찾을 수 없어요.' }[e.message] || '신청 실패! 다시 눌러 주세요.';
+                if (!['closed', 'cash', 'nostudent'].includes(e.message)) console.error(e);
+                showToast(msg);
+            } finally { lottoBusy = false; renderLottoStudent(); }
+        };
+
+        // ---------- 교사 동작 ----------
+        function lottoReadSettings() {
+            const v = (id) => { const n = parseFloat(document.getElementById(id).value); return isFinite(n) && n >= 0 ? parseFloat(n.toFixed(1)) : null; };
+            const cost = v('lotto-set-cost'), p1 = v('lotto-set-p1'), p2 = v('lotto-set-p2'), p3 = v('lotto-set-p3');
+            if ([cost, p1, p2, p3].some(x => x === null)) { showToast('응모비와 당첨금은 0 이상의 숫자로 적어 주세요.'); return null; }
+            return { cost, prizes: { p1, p2, p3 } };
+        }
+        function lottoFillSettings() {
+            const pr = lottoPrizes();
+            document.getElementById('lotto-set-cost').value = lottoCost();
+            document.getElementById('lotto-set-p1').value = pr.p1;
+            document.getElementById('lotto-set-p2').value = pr.p2;
+            document.getElementById('lotto-set-p3').value = pr.p3;
+        }
+        async function lottoAdminRun(fn) {
+            if (!isAdmin) return showToast('선생님(관리자)만 할 수 있어요.');
+            if (lottoBusy || lottoAnim) return;
+            lottoBusy = true; renderLottoAdmin();
+            try { await fn(); }
+            catch (e) { const known = { state: '상태가 바뀌었어요. 화면을 확인해 주세요.' }; if (!known[e.message]) console.error(e); showToast(known[e.message] || '처리 실패! 다시 시도해 주세요.'); }
+            finally { lottoBusy = false; renderLotto(); }
+        }
+        async function lottoSwitchStatus(from, to, extra = {}) {
+            const round = lottoState.round;
+            await runTransaction(db, async (tx) => {
+                const d = (await tx.get(lottoStateRef)).data();
+                if (!d || d.status !== from || d.round !== round) throw new Error('state');
+                tx.update(lottoStateRef, { status: to, ...extra });
+            });
+        }
+        window.lottoSaveSettings = () => lottoAdminRun(async () => {
+            const s = lottoReadSettings(); if (!s) return;
+            if (lottoState.status === 'drawn' && lottoState.paid) { await setDoc(lottoStateRef, s, { merge: true }); return showToast('저장됨 (다음 회차부터 적용)'); }
+            const hasEntries = lottoRoundEntries().length > 0 && lottoState.status !== 'none';
+            const upd = hasEntries ? { prizes: s.prizes } : s;
+            await setDoc(lottoStateRef, upd, { merge: true });
+            showToast(hasEntries && s.cost !== lottoCost() ? '당첨금만 저장됨 (이미 신청한 학생이 있어 응모비는 그대로)' : '설정 저장됨');
+        });
+        window.lottoOpenRound = () => lottoAdminRun(async () => {
+            const s = lottoReadSettings(); if (!s) return;
+            if (lottoState.status === 'open' || lottoState.status === 'closed') return showToast('진행 중인 회차를 먼저 끝내 주세요.');
+            if (lottoState.status === 'drawn' && !lottoState.paid && !confirm('이번 회차 당첨금을 아직 지급하지 않았어요.\n지급하지 않고 새 회차를 열까요?')) return;
+            const round = (lottoState.round || 0) + 1;
+            await setDoc(lottoStateRef, { round, status: 'open', drawn: [], ...s, paid: false, openedAt: Date.now(), drawnAt: null });
+            addNewsEntry(`🎱 [색공 로또] 제 ${round}회 응모 시작! 색공 3개를 순서대로 골라 보세요. (1등 ${s.prizes.p1}C)`, 'info');
+            showToast(`제 ${round}회 응모를 열었어요.`);
+        });
+        window.lottoClose = () => lottoAdminRun(async () => {
+            await lottoSwitchStatus('open', 'closed', { closedAt: Date.now() });
+            showToast('🔒 응모를 마감했어요.');
+        });
+        window.lottoReopen = () => lottoAdminRun(async () => {
+            await lottoSwitchStatus('closed', 'open');
+            showToast('↩️ 다시 응모를 받아요.');
+        });
+        window.lottoDrawNow = () => lottoAdminRun(async () => {
+            if (lottoState.status !== 'closed') return showToast('먼저 응모를 마감해 주세요.');
+            // 2^32는 4로 나누어떨어지므로 % 4를 해도 네 가지 색이 정확히 같은 확률(1/4)
+            const arr = new Uint32Array(LOTTO_N);
+            crypto.getRandomValues(arr);
+            const drawn = Array.from(arr, v => LOTTO_KEYS[v % 4]);
+            await lottoSwitchStatus('closed', 'drawn', { drawn, drawnAt: Date.now() });
+        });
+        window.lottoPay = () => lottoAdminRun(async () => {
+            const s = lottoState;
+            if (s.status !== 'drawn' || s.paid) return;
+            const pr = lottoPrizes();
+            const winners = lottoRoundEntries()
+                .map(e => ({ e, r: lottoRank(e.pick, s.drawn) }))
+                .filter(x => x.r > 0 && pr['p' + x.r] > 0 && students.some(st => st.id === x.e.studentId));
+            const total = winners.reduce((t, x) => t + pr['p' + x.r], 0);
+            if (!confirm(`당첨금 총 ${total.toFixed(1)}C를 ${winners.length}명에게 지급할까요?`)) return;
+            await runTransaction(db, async (tx) => {
+                const d = (await tx.get(lottoStateRef)).data();
+                if (!d || d.status !== 'drawn' || d.paid || d.round !== s.round) throw new Error('state');
+                winners.forEach(x => tx.update(studentRef(x.e.studentId), { cash: increment(pr['p' + x.r]) }));
+                tx.update(lottoStateRef, { paid: true, paidAt: Date.now() });
+            });
+            const n = (r) => winners.filter(x => x.r === r).length;
+            const w1 = winners.filter(x => x.r === 1).map(x => x.e.studentName);
+            addNewsEntry(`🎱 [색공 로또] 제 ${s.round}회 결과: ${s.drawn.map(k => LOTTO_COLORS[k].name).join('→')} · 1등 ${w1.length ? w1.join(', ') : '없음'} / 2등 ${n(2)}명 / 3등 ${n(3)}명`, 'info');
+            showToast('💰 당첨금 지급 완료!');
+        });
+
+        // ---------- 추첨 기계 (캔버스) ----------
+        const LM = { W: 300, H: 330, cx: 150, cy: 135, R: 112, r: 12, balls: [], mixing: false, eject: null, raf: null, ctx: null, spin: 0 };
+        function lmSetup() {
+            const cv = document.getElementById('lotto-canvas');
+            const dpr = window.devicePixelRatio || 1;
+            cv.width = LM.W * dpr; cv.height = LM.H * dpr;
+            cv.style.width = '100%'; cv.style.maxWidth = LM.W + 'px'; cv.style.aspectRatio = `${LM.W} / ${LM.H}`;
+            LM.ctx = cv.getContext('2d');
+            LM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            LM.balls = [];
+            LOTTO_KEYS.forEach(k => { for (let i = 0; i < 6; i++) LM.balls.push({ k, x: LM.cx + (Math.random() - 0.5) * 140, y: LM.cy + 20 + Math.random() * 60, vx: 0, vy: 0 }); });
+        }
+        function lmStep() {
+            const { cx, cy, R, r } = LM, lim = R - r;
+            const live = LM.balls.filter(b => b !== LM.eject?.ball);
+            for (const b of live) {
+                b.vy += 0.3;
+                if (LM.mixing) {
+                    if (b.y > cy + R * 0.3) { b.vy -= 0.9 + Math.random() * 1.1; b.vx += (Math.random() - 0.5) * 2; }
+                    b.vx += (Math.random() - 0.5) * 0.4;
+                }
+                b.vx *= 0.995; b.vy *= 0.995;
+                const sp = Math.hypot(b.vx, b.vy); if (sp > 13) { b.vx *= 13 / sp; b.vy *= 13 / sp; }
+                b.x += b.vx; b.y += b.vy;
+                const dx = b.x - cx, dy = b.y - cy, dist = Math.hypot(dx, dy) || 1;
+                if (dist > lim) {
+                    const nx = dx / dist, ny = dy / dist;
+                    b.x = cx + nx * lim; b.y = cy + ny * lim;
+                    const dot = b.vx * nx + b.vy * ny;
+                    if (dot > 0) { b.vx -= 1.75 * dot * nx; b.vy -= 1.75 * dot * ny; }
+                    if (!LM.mixing) { b.vx *= 0.85; b.vy *= 0.85; }
+                }
+            }
+            for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
+                const a = live[i], b = live[j];
+                const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+                if (d > 0 && d < r * 2) {
+                    const nx = dx / d, ny = dy / d, push = (r * 2 - d) / 2;
+                    a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
+                    const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+                    if (rel < 0) { const imp = rel * 0.9; a.vx += imp * nx; a.vy += imp * ny; b.vx -= imp * nx; b.vy -= imp * ny; }
+                }
+            }
+            if (LM.eject) {
+                const e = LM.eject, t = Math.min(1, (performance.now() - e.t0) / e.dur);
+                const hole = { x: cx, y: cy + R - r }, end = { x: cx, y: cy + R + 48 };
+                const ease = (u) => u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+                if (t < 0.55) { const u = ease(t / 0.55); e.ball.x = e.x0 + (hole.x - e.x0) * u; e.ball.y = e.y0 + (hole.y - e.y0) * u; }
+                else { const u = ease((t - 0.55) / 0.45); e.ball.x = hole.x; e.ball.y = hole.y + (end.y - hole.y) * u; }
+            }
+            if (LM.mixing) LM.spin += 0.06;
+        }
+        function lmBall(ctx, b) {
+            const m = LOTTO_COLORS[b.k], r = LM.r;
+            const g = ctx.createRadialGradient(b.x - r * 0.35, b.y - r * 0.4, r * 0.1, b.x, b.y, r);
+            g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, m.c); g.addColorStop(1, m.d);
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = m.t; ctx.font = 'bold 10px "Noto Sans KR", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(m.short, b.x, b.y + 1);
+        }
+        function lmRender() {
+            const ctx = LM.ctx, { W, H, cx, cy, R, r } = LM;
+            ctx.clearRect(0, 0, W, H);
+            // 받침대와 배출구
+            ctx.fillStyle = '#d1d6db'; ctx.beginPath(); ctx.moveTo(cx - 70, H - 8); ctx.lineTo(cx + 70, H - 8); ctx.lineTo(cx + 45, cy + R + 10); ctx.lineTo(cx - 45, cy + R + 10); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#eef0f3'; ctx.fillRect(cx - r - 5, cy + R - 10, (r + 5) * 2, 72);
+            ctx.strokeStyle = '#b0b8c1'; ctx.lineWidth = 2; ctx.strokeRect(cx - r - 5, cy + R - 10, (r + 5) * 2, 72);
+            // 유리 통
+            const glass = ctx.createRadialGradient(cx - 40, cy - 50, 10, cx, cy, R);
+            glass.addColorStop(0, 'rgba(255,255,255,0.95)'); glass.addColorStop(1, 'rgba(200,225,255,0.55)');
+            ctx.fillStyle = glass; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+            // 섞을 때 도는 날개
+            ctx.save(); ctx.translate(cx, cy + R * 0.55); ctx.rotate(LM.spin); ctx.strokeStyle = 'rgba(120,135,150,0.35)'; ctx.lineWidth = 4;
+            for (let i = 0; i < 3; i++) { ctx.rotate(Math.PI * 2 / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -26); ctx.stroke(); }
+            ctx.restore();
+            LM.balls.forEach(b => { if (b !== LM.eject?.ball) lmBall(ctx, b); });
+            ctx.strokeStyle = LM.mixing ? '#f59f00' : '#8b95a1'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(cx - 45, cy - 60, 26, 12, -0.6, 0, Math.PI * 2); ctx.fill();
+            if (LM.eject) lmBall(ctx, LM.eject.ball);
+        }
+        function lmLoop() { lmStep(); lmRender(); LM.raf = requestAnimationFrame(lmLoop); }
+        function lmEject(k) {
+            const cand = LM.balls.filter(b => b.k === k).sort((a, b) => b.y - a.y);
+            const ball = cand[0];
+            LM.eject = { ball, x0: ball.x, y0: ball.y, t0: performance.now(), dur: 1000 };
+            return lottoWait(1050);
+        }
+        function lmSetCaption(t) { const c = document.getElementById('lotto-caption'); if (c) c.textContent = t; }
+        async function playLottoDraw(drawn) {
+            if (lottoAnim || !drawn || drawn.length !== LOTTO_N) return;
+            lottoAnim = { revealed: 0 };
+            renderLotto();
+            for (let i = 0; i < LOTTO_N; i++) {
+                LM.mixing = true;
+                lmSetCaption(`${i + 1}번째 공을 섞는 중… 🌀`);
+                await lottoWait(i === 0 ? 2800 : 2000);
+                await lmEject(drawn[i]);
+                LM.mixing = false;
+                lottoAnim.revealed = i + 1;
+                renderLottoSlots(i);
+                lmSetCaption(`${i + 1}번째 공: ${LOTTO_COLORS[drawn[i]].name}!`);
+                await lottoWait(1300);
+                if (i < LOTTO_N - 1) lmSetCaption('꺼낸 공은 다시 기계 속으로! (같은 색이 또 나올 수 있어요)');
+                const b = LM.eject.ball; b.x = LM.cx + (Math.random() - 0.5) * 40; b.y = LM.cy - LM.R + LM.r + 6; b.vx = 0; b.vy = 0;
+                LM.eject = null;
+                if (i < LOTTO_N - 1) await lottoWait(700);
+            }
+            lottoAnim = null;
+            renderLotto();
+        }
+
+        window.openLotto = () => {
+            lottoOpen = true;
+            document.getElementById('modal-lotto').style.display = 'flex';
+            if (!LM.ctx) lmSetup();
+            if (!LM.raf) lmLoop();
+            if (isAdmin) lottoFillSettings();
+            lottoPickRound = null;   // 열 때마다 내 신청 내용을 다시 불러옴
+            renderLotto();
+        };
+        window.closeLotto = () => {
+            lottoOpen = false;
+            document.getElementById('modal-lotto').style.display = 'none';
+            if (LM.raf) { cancelAnimationFrame(LM.raf); LM.raf = null; }
+        };
 
         startApp();
     </script>
