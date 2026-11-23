@@ -530,7 +530,7 @@
                         <div class="bg-slate-950 p-6 rounded-2xl border border-slate-800">
                             <h3 class="text-xs font-black text-blue-400 uppercase mb-4 flex justify-between">
                                 <span>⚡ 실시간 주식 거래 (즉시 체결)</span>
-                                <span class="text-[10px] text-amber-300 font-bold">매도 시 수수료 10%</span>
+                                <span class="text-[10px] text-amber-300 font-bold">매도 시 수수료 5%</span>
                             </h3>
                             <div class="flex gap-2 mb-4">
                                 <select id="portal-trade-type" onchange="renderTradePreview()" class="bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-xs text-white">
@@ -1349,7 +1349,7 @@
                             }
                         } else if (it.type === 'sell') {
                             if (h[stk.id]?.qty >= it.qty) {
-                                // (구버전 대기 주문 호환용) 실시간 거래와 동일하게 매도 금액의 10% 수수료
+                                // (구버전 대기 주문 호환용) 실시간 거래와 동일하게 매도 금액의 5% 수수료
                                 cash += calcTrade('sell', stk, it.qty).net;
                                 h[stk.id].qty -= it.qty; if(h[stk.id].qty <= 0) delete h[stk.id];
                             } else {
@@ -1977,7 +1977,7 @@
             document.getElementById('modal-student-portal').style.display = 'flex';
         };
         // --- 실시간 주식 거래 (승인 없이 즉시 체결) ---
-        const SELL_FEE_RATE = 0.10; // 매도 시에만 거래금액의 10% 수수료
+        const SELL_FEE_RATE = 0.05; // 매도 시에만 거래금액의 5% 수수료
         const round1 = (v) => Math.round(v * 10) / 10;
         let tradeBusy = false;
 
@@ -2018,7 +2018,7 @@
                         html += row('매수 금액', `${t.gross.toFixed(1)} C`, 'text-blue-400') + row('수수료', '없음') + row('거래 후 현금', `${round1(s.cash - t.gross).toFixed(1)} C`, 'text-emerald-400');
                         if (s.cash < t.gross) msg = `현금이 부족합니다. (보유 ${s.cash.toFixed(1)}C)`; else ok = true;
                     } else {
-                        html += row('매도 금액', `${t.gross.toFixed(1)} C`) + row('수수료 (10%)', `- ${t.fee.toFixed(1)} C`, 'text-rose-400') + row('실제 받는 돈', `${t.net.toFixed(1)} C`, 'text-emerald-400');
+                        html += row('매도 금액', `${t.gross.toFixed(1)} C`) + row('수수료 (5%)', `- ${t.fee.toFixed(1)} C`, 'text-rose-400') + row('실제 받는 돈', `${t.net.toFixed(1)} C`, 'text-emerald-400');
                         const avg = s.holdings?.[stk.id]?.avg;
                         if (avg) { const pl = round1(t.net - avg * qty); html += row('예상 손익 (수수료 포함)', `${pl >= 0 ? '+' : ''}${pl.toFixed(1)} C`, pl >= 0 ? 'text-rose-400' : 'text-blue-400'); }
                         if (held < qty) msg = `보유 수량이 부족합니다. (현재 보유: ${held}주)`; else ok = true;
