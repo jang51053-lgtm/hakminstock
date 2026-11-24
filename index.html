@@ -696,6 +696,13 @@
                 </div>
                 <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800">
                     <div>
+                        <p class="text-xs font-bold">💾 전체 데이터 백업</p>
+                        <p class="text-[9px] text-slate-500">학생 계좌·주가·상점 등을 파일로 내려받기 (큰 행사 전 권장)</p>
+                    </div>
+                    <button onclick="exportBackup()" class="bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap">백업</button>
+                </div>
+                <div class="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div>
                         <p class="text-xs font-bold">👷 학생 의뢰 등록 허용</p>
                         <p class="text-[9px] text-slate-500">켜면 학생도 자기 계좌 돈으로 의뢰를 올릴 수 있음 (기본: 꺼짐)</p>
                     </div>
@@ -771,7 +778,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, addDoc, writeBatch, runTransaction, increment, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, addDoc, writeBatch, runTransaction, increment, deleteField, getDocs, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Firebase 설정 ---
         const firebaseConfig = {
@@ -824,6 +831,25 @@
 
         onAuthStateChanged(auth, (user) => { if(user) initSync(); });
 
+        // 서버 오류(특히 일일 한도 초과)를 조용히 삼키지 않고 화면에 알려준다.
+        let listenErrAt = 0;
+        function listenErr(err) {
+            console.error('snapshot error:', err);
+            if (Date.now() - listenErrAt < 30000) return;
+            listenErrAt = Date.now();
+            if (err && err.code === 'resource-exhausted') showToast('⚠️ 오늘 서버 사용량 한도에 도달했어요. 지금 하는 일이 저장되지 않을 수 있으니 잠시 멈춰 주세요.');
+            else showToast('⚠️ 서버 연결이 불안정해요. 새로고침하지 말고 잠시 기다려 주세요.');
+        }
+        const onSnap = (ref, cb) => onSnapshot(ref, cb, listenErr);
+
+        // 학생 계정 변경은 모두 '서버 확인이 끝난 뒤에만' 성공으로 처리하기 위한 공통 오류 문구
+        function txErrMsg(e, map) {
+            const m = map && e && map[e.message];
+            if (m) return m;
+            console.error(e);
+            return '⚠️ 저장에 실패했어요. 잠시 후 다시 눌러 주세요. (내 계좌는 그대로예요)';
+        }
+
         function initSync() {
             onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), (s) => {
                 if (s.exists()) {
@@ -842,12 +868,12 @@
                 showToast('⚠️ 서버 연결 오류가 발생했습니다. 네트워크 상태를 확인해주세요.');
             });
 
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'stocks'), (s) => {
+            onSnap(collection(db, 'artifacts', appId, 'public', 'data', 'stocks'), (s) => {
                 stocks = s.docs.map(d => d.data()).sort((a,b) => a.order - b.order);
                 if (stocks.length > 0) { renderStocks(); updateChart(); renderRankings(); if(loggedInIdx !== null) { renderInventory(); renderPortalStockOptions(); renderTradePreview(); renderAssetOverview(); } }
             });
 
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (s) => {
+            onSnap(collection(db, 'artifacts', appId, 'public', 'data', 'students'), (s) => {
                 students = s.docs.map(d => ({ ...d.data(), id: d.id }));
                 if (loggedInId !== null) { const i = students.findIndex(x => x.id === loggedInId); if (i === -1) { logoutStudent(true); } else loggedInIdx = i; }
                 else tryResumeSession();
@@ -856,34 +882,34 @@
                 document.getElementById('loading-screen').style.display = 'none';
             });
 
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), (s) => {
+            onSnap(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), (s) => {
                 orders = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => b.timestamp - a.timestamp);
                 renderOrderQueue();
             });
 
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'shopItems'), (s) => {
+            onSnap(collection(db, 'artifacts', appId, 'public', 'data', 'shopItems'), (s) => {
                 shopItems = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (a.order||0) - (b.order||0));
                 renderShopAdmin();
                 if (loggedInIdx !== null) renderPortalShop();
             });
 
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'gachaPool'), (s) => {
+            onSnap(collection(db, 'artifacts', appId, 'public', 'data', 'gachaPool'), (s) => {
                 gachaPool = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (a.order||0) - (b.order||0));
                 renderGachaAdmin();
             });
 
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'seats'), (s) => {
+            onSnap(collection(db, 'artifacts', appId, 'public', 'data', 'seats'), (s) => {
                 seats = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => (a.order||0) - (b.order||0));
                 renderSeatAdmin();
                 if (loggedInIdx !== null) { renderPortalSeats(); renderAssetOverview(); }
             });
 
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'quests'), (s) => {
+            onSnap(collection(db, 'artifacts', appId, 'public', 'data', 'quests'), (s) => {
                 quests = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 renderQuests();
             });
 
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (s) => {
+            onSnap(query(collection(db, 'artifacts', appId, 'public', 'data', 'news'), orderBy('timestamp', 'desc'), limit(60)), (s) => {
                 newsItems = s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b) => b.timestamp - a.timestamp).slice(0, 60);
                 renderNews();
             });
@@ -907,9 +933,44 @@
             showToast("시장 데이터를 새로 초기화했습니다.");
         };
 
+        // 전체 데이터를 JSON 파일로 내려받기 (초기화 전 자동 호출 / 관리자 수동 백업)
+        async function downloadBackup(label = '백업') {
+            const base = ['artifacts', appId, 'public', 'data'];
+            const names = ['students', 'stocks', 'orders', 'shopItems', 'gachaPool', 'seats', 'quests', 'news', 'lottoEntries'];
+            const out = { exportedAt: new Date().toISOString(), appId, collections: {}, docs: {} };
+            for (const n of names) {
+                const snap = await getDocs(collection(db, ...base, n));
+                out.collections[n] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            }
+            for (const [c, i] of [['market', 'state'], ['lotto', 'state']]) {
+                const sn = await getDoc(doc(db, ...base, c, i));
+                out.docs[`${c}/${i}`] = sn.exists() ? sn.data() : null;
+            }
+            const d = new Date(), p = (v) => String(v).padStart(2, '0');
+            const ts = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
+            a.download = `hakminstock-${label}-${ts}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+            return out;
+        }
+        window.exportBackup = async () => {
+            if (!isAdmin) return showToast('관리자만 사용할 수 있습니다.');
+            try {
+                showToast('백업 파일을 만드는 중...');
+                const out = await downloadBackup('수동백업');
+                showToast(`💾 백업 완료 (학생 ${out.collections.students.length}명)`);
+            } catch (e) { console.error(e); showToast('⚠️ 백업에 실패했어요. (오늘 사용량 한도가 찼을 수 있어요)'); }
+        };
+
         window.resetGame = async () => {
             if (!isAdmin) return;
             if (!confirm("정말 시즌을 1일차로 초기화하시겠습니까?\n모든 학생의 데이터(자산, 주식)와 주문 내역이 '완전히 삭제'되고 1일차로 리셋됩니다!")) return;
+            if (prompt("되돌릴 수 없습니다. 계속하려면 '초기화'라고 입력하세요.") !== '초기화') return showToast('초기화를 취소했습니다.');
+            // 초기화 직전 자동 백업: 백업이 실패하면 초기화하지 않는다.
+            try { await downloadBackup('초기화전-자동백업'); }
+            catch (e) { console.error(e); return showToast('⚠️ 백업에 실패해서 초기화를 중단했어요. (데이터는 그대로입니다)'); }
             
             try {
                 // 로딩 화면 표시
@@ -988,7 +1049,7 @@
                 await advancePhaseInner(next, prevDay);
             } catch (e) {
                 console.error('advancePhase error:', e);
-                showToast('⚠️ 장 진행 중 오류가 발생했습니다.');
+                showToast('⚠️ 장 진행 중 일부 단계에서 오류가 났어요. 새로고침 후 날짜·주가·배당이 맞는지 확인해 주세요.');
             } finally {
                 phaseAdvancing = false;
             }
@@ -1064,21 +1125,32 @@
         }
 
         const SEAT_PAYOUT_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 주 1회
+        let seatPayoutBusy = false;
         async function checkSeatPayout() {
             const now = Date.now();
-            const last = marketState.lastSeatPayoutAt || 0;
-            if (now - last < SEAT_PAYOUT_INTERVAL_MS) return;
+            if (now - (marketState.lastSeatPayoutAt || 0) < SEAT_PAYOUT_INTERVAL_MS) return;
+            if (seatPayoutBusy) return;
+            // 학생/자리 목록을 아직 못 불러왔으면 빈 목록으로 한 주를 소진해 버리지 않도록 건너뜀
+            if (students.length === 0 || seats.length === 0) return;
+            seatPayoutBusy = true;
             try {
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state'), { lastSeatPayoutAt: now });
-                marketState.lastSeatPayoutAt = now;
-            } catch (e) { return; }
-            const owned = seats.filter(s => s.ownerId);
-            for (const seat of owned) {
-                const std = students.find(x => x.id === seat.ownerId);
-                if (!std || !seat.weeklyIncome) continue;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: increment(seat.weeklyIncome) });
-            }
-            if (owned.length > 0) showToast(`🏠 부동산 주급 ${owned.length}건 지급 완료`);
+                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'market', 'state');
+                const owned = seats.filter(s => s.ownerId && s.weeklyIncome && students.some(x => x.id === s.ownerId));
+                // 여러 기기가 동시에 이 코드를 실행해도 '선점 + 지급'이 한 트랜잭션이라 한 번만 지급된다.
+                const paid = await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) return -1;
+                    if (now - (snap.data().lastSeatPayoutAt || 0) < SEAT_PAYOUT_INTERVAL_MS) return -1;
+                    tx.update(ref, { lastSeatPayoutAt: now });
+                    owned.forEach(seat => tx.update(studentRef(seat.ownerId), { cash: increment(seat.weeklyIncome) }));
+                    return owned.length;
+                });
+                if (paid >= 0) {
+                    marketState.lastSeatPayoutAt = now;
+                    if (paid > 0) showToast(`🏠 부동산 주급 ${paid}건 지급 완료`);
+                }
+            } catch (e) { console.error('seat payout error:', e); }
+            finally { seatPayoutBusy = false; }
         }
 
         setInterval(() => { checkAutoSchedule(); checkSeatPayout(); }, 60000);
@@ -1233,19 +1305,27 @@
                 const divIds = ['SF', 'HA', 'MM'];
                 const divNames = divIds.map(id => stocks.find(x => x.id === id)?.name).filter(Boolean).join('/');
                 await addNewsEntry(`💰 정기 배당일! ${divNames} 보유자에게 배당금이 지급되었습니다.`, 'good');
-                students.forEach(async s => {
+                // 학생별로 따로 던지고 결과를 확인하지 않던 방식 → 한 번에 묶어 커밋하고 실패하면 오류로 알림
+                const b = writeBatch(db); let n = 0;
+                students.forEach(s => {
                     let total = 0;
                     divIds.forEach(id => {
                         const stk = stocks.find(x => x.id === id);
-                        if (s.holdings?.[id]?.qty > 0) { const v = stk.price * 0.05; if(v >= 0.1) total += v * s.holdings[id].qty; }
+                        if (stk && s.holdings?.[id]?.qty > 0) { const v = stk.price * 0.05; if (v >= 0.1) total += v * s.holdings[id].qty; }
                     });
                     // 실시간 거래와 동시에 일어나도 거래 결과를 덮어쓰지 않도록 increment로 더하기만 함
-                    if (total > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: increment(parseFloat(total.toFixed(1))) });
+                    if (total > 0) { b.update(studentRef(s.id), { cash: increment(parseFloat(total.toFixed(1))) }); n++; }
                 });
+                if (n > 0) await b.commit();
             }
             if (d % 30 === 0) {
                 await addNewsEntry(`🏦 이자 지급일! 보유 현금에 이자가 지급되었습니다.`, 'good');
-                students.forEach(async s => { const i = parseFloat((s.cash * 0.1).toFixed(1)); if(i > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: increment(i) }); });
+                const b = writeBatch(db); let n = 0;
+                students.forEach(s => {
+                    const i = parseFloat(((s.cash || 0) * 0.1).toFixed(1));
+                    if (i > 0) { b.update(studentRef(s.id), { cash: increment(i) }); n++; }
+                });
+                if (n > 0) await b.commit();
             }
         }
 
@@ -1293,12 +1373,19 @@
             document.getElementById('adjust-save-btn').onclick = async () => {
                 const v = parseFloat(document.getElementById('adjust-input').value);
                 if (!isNaN(v)) {
-                    if (isCash) {
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { cash: parseFloat((s.cash + v).toFixed(1)) });
-                    } else {
-                        const newCount = Math.max(0, (s.ticketCount || 0) + Math.round(v));
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { ticketCount: newCount });
-                    }
+                    try {
+                        const ref = studentRef(s.id);
+                        if (isCash) {
+                            // 화면에 보이던 잔액이 아니라 '서버의 현재 잔액'에 더하기만 한다.
+                            await updateDoc(ref, { cash: increment(parseFloat(v.toFixed(1))) });
+                        } else {
+                            await runTransaction(db, async (tx) => {
+                                const sn = await tx.get(ref);
+                                const cur = sn.exists() ? (sn.data().ticketCount || 0) : 0;
+                                tx.update(ref, { ticketCount: Math.max(0, cur + Math.round(v)) });
+                            });
+                        }
+                    } catch (e) { console.error(e); showToast('⚠️ 저장에 실패했어요. 다시 시도해 주세요.'); return; }
                 }
                 document.getElementById('modal-adjust-asset').style.display = 'none';
             };
@@ -1307,64 +1394,66 @@
         window.processOrder = async (id, approved) => {
             if (!isAdmin && !isBroker) return;
             const o = orders.find(x => x.id === id); if (!o) return;
-            const stdDoc = doc(db, 'artifacts', appId, 'public', 'data', 'students', o.studentId);
-            const snap = await getDoc(stdDoc); if (!snap.exists()) return;
-            const s = snap.data();
-            if (o.type === 'redeem' && o.redeemKind === 'fragment') {
-                if (!approved) {
-                    const frags = { ...(s.fragments || {}) };
-                    frags[o.poolItemId] = (frags[o.poolItemId] || 0) + 10;
-                    await updateDoc(stdDoc, { fragments: frags });
-                }
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', id));
-                return;
-            }
-            if (o.type === 'redeem') {
-                const inv = [...(s.inventory || [])];
-                if (approved) {
-                    await updateDoc(stdDoc, { inventory: inv.filter(x => x.instanceId !== o.instanceId) });
-                } else {
-                    const idx = inv.findIndex(x => x.instanceId === o.instanceId);
-                    if (idx !== -1) { inv[idx] = { ...inv[idx], pendingOrderId: null }; await updateDoc(stdDoc, { inventory: inv }); }
-                }
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', id));
-                return;
-            }
-            if (approved) {
-                if (o.type === 'multi') {
-                    let cash = s.cash, h = { ...s.holdings } || {};
-                    const failed = []; // 승인 시점 가격/보유량 기준으로 처리 못 한 항목 (조용히 무시되던 것을 눈에 보이게 기록)
-                    o.basket.forEach(it => {
-                        const stk = stocks.find(x => x.id === it.stockId);
-                        if (!stk) { failed.push(`알 수 없는 종목(${it.stockId}) ${it.qty}주`); return; }
-                        if (it.type === 'buy') {
-                            const cost = stk.price * it.qty;
-                            if (cash >= cost) {
-                                cash -= cost;
-                                if (!h[stk.id]) h[stk.id] = { qty: 0, avg: 0 };
-                                h[stk.id].avg = ((h[stk.id].qty * h[stk.id].avg) + (stk.price * it.qty)) / (h[stk.id].qty + it.qty);
-                                h[stk.id].qty += it.qty;
-                            } else {
-                                failed.push(`매수 실패 - ${stk.icon}${stk.name} ${it.qty}주 (필요 ${cost.toFixed(1)}C, 현재 잔액 ${cash.toFixed(1)}C)`);
-                            }
-                        } else if (it.type === 'sell') {
-                            if (h[stk.id]?.qty >= it.qty) {
-                                // (구버전 대기 주문 호환용) 실시간 거래와 동일하게 매도 금액의 5% 수수료
-                                cash += calcTrade('sell', stk, it.qty).net;
-                                h[stk.id].qty -= it.qty; if(h[stk.id].qty <= 0) delete h[stk.id];
-                            } else {
-                                failed.push(`매도 실패 - ${stk.icon}${stk.name} ${it.qty}주 (현재 보유 ${h[stk.id]?.qty || 0}주)`);
-                            }
+            const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', id);
+            const stdDoc = studentRef(o.studentId);
+            let failed = [];
+            try {
+                await runTransaction(db, async (tx) => {
+                    failed = [];
+                    const [oSnap, snap] = await Promise.all([tx.get(orderRef), tx.get(stdDoc)]);
+                    if (!oSnap.exists()) return;      // 이미 다른 기기에서 처리된 주문 → 두 번 처리하지 않음
+                    if (!snap.exists()) return;
+                    const s = snap.data();
+                    if (o.type === 'redeem' && o.redeemKind === 'fragment') {
+                        if (!approved) {
+                            const frags = { ...(s.fragments || {}) };
+                            frags[o.poolItemId] = (frags[o.poolItemId] || 0) + 10;
+                            tx.update(stdDoc, { fragments: frags });
                         }
-                    });
-                    await updateDoc(stdDoc, { cash: parseFloat(cash.toFixed(1)), holdings: h });
-                    if (failed.length > 0) {
-                        alert(`⚠️ [${o.studentName}] 주문 중 일부 항목이 반영되지 않았습니다 (승인 시점 시세/보유량 기준으로 조건 불충족):\n\n${failed.join('\n')}\n\n※ 신청 시점 이후 시세가 바뀌었거나 다른 주문이 먼저 처리되어 발생할 수 있습니다. 필요하면 학생에게 재신청을 안내하거나 '모험가 관리'에서 직접 자산을 조정해주세요.`);
-                    }
-                } else if (o.type === 'withdraw' && s.cash >= o.qty) { await updateDoc(stdDoc, { cash: parseFloat((s.cash - o.qty).toFixed(1)) }); }
-                else if (o.type === 'deposit') { await updateDoc(stdDoc, { cash: parseFloat((s.cash + o.qty).toFixed(1)) }); }
-            } else if (o.type === 'multi') { await updateDoc(stdDoc, { lastOrderDay: -1 }); }
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', id));
+                    } else if (o.type === 'redeem') {
+                        const inv = [...(s.inventory || [])];
+                        if (approved) {
+                            tx.update(stdDoc, { inventory: inv.filter(x => x.instanceId !== o.instanceId) });
+                        } else {
+                            const idx = inv.findIndex(x => x.instanceId === o.instanceId);
+                            if (idx !== -1) { inv[idx] = { ...inv[idx], pendingOrderId: null }; tx.update(stdDoc, { inventory: inv }); }
+                        }
+                    } else if (approved) {
+                        if (o.type === 'multi') {
+                            let cash = s.cash, h = { ...(s.holdings || {}) };
+                            o.basket.forEach(it => {
+                                const stk = stocks.find(x => x.id === it.stockId);
+                                if (!stk) { failed.push(`알 수 없는 종목(${it.stockId}) ${it.qty}주`); return; }
+                                if (it.type === 'buy') {
+                                    const cost = stk.price * it.qty;
+                                    if (cash >= cost) {
+                                        cash -= cost;
+                                        if (!h[stk.id]) h[stk.id] = { qty: 0, avg: 0 };
+                                        h[stk.id].avg = ((h[stk.id].qty * h[stk.id].avg) + (stk.price * it.qty)) / (h[stk.id].qty + it.qty);
+                                        h[stk.id].qty += it.qty;
+                                    } else {
+                                        failed.push(`매수 실패 - ${stk.icon}${stk.name} ${it.qty}주 (필요 ${cost.toFixed(1)}C, 현재 잔액 ${cash.toFixed(1)}C)`);
+                                    }
+                                } else if (it.type === 'sell') {
+                                    if (h[stk.id]?.qty >= it.qty) {
+                                        // (구버전 대기 주문 호환용) 실시간 거래와 동일하게 매도 금액의 5% 수수료
+                                        cash += calcTrade('sell', stk, it.qty).net;
+                                        h[stk.id].qty -= it.qty; if (h[stk.id].qty <= 0) delete h[stk.id];
+                                    } else {
+                                        failed.push(`매도 실패 - ${stk.icon}${stk.name} ${it.qty}주 (현재 보유 ${h[stk.id]?.qty || 0}주)`);
+                                    }
+                                }
+                            });
+                            tx.update(stdDoc, { cash: parseFloat(cash.toFixed(1)), holdings: h });
+                        } else if (o.type === 'withdraw' && s.cash >= o.qty) { tx.update(stdDoc, { cash: parseFloat((s.cash - o.qty).toFixed(1)) }); }
+                        else if (o.type === 'deposit') { tx.update(stdDoc, { cash: parseFloat((s.cash + o.qty).toFixed(1)) }); }
+                    } else if (o.type === 'multi') { tx.update(stdDoc, { lastOrderDay: -1 }); }
+                    tx.delete(orderRef);               // 처리 결과와 주문 삭제가 한 번에 반영됨
+                });
+            } catch (e) { console.error('processOrder error:', e); return showToast('⚠️ 주문 처리에 실패했어요. 다시 시도해 주세요.'); }
+            if (failed.length > 0) {
+                alert(`⚠️ [${o.studentName}] 주문 중 일부 항목이 반영되지 않았습니다 (승인 시점 시세/보유량 기준으로 조건 불충족):\n\n${failed.join('\n')}\n\n※ 신청 시점 이후 시세가 바뀌었거나 다른 주문이 먼저 처리되어 발생할 수 있습니다. 필요하면 학생에게 재신청을 안내하거나 '모험가 관리'에서 직접 자산을 조정해주세요.`);
+            }
         };
 
         function updateChart() {
@@ -2130,14 +2219,25 @@
             if (shopItems.length === 0) { cont.innerHTML = '<p class="text-center text-slate-600 text-xs py-6 italic">등록된 상품이 없습니다.</p>'; return; }
             cont.innerHTML = shopItems.map(it => `<div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl mb-2"><div><p class="text-xs font-bold">${it.icon} ${it.name}</p><p class="text-[10px] text-slate-500">${it.description||''}</p></div><button onclick="buyShopItem('${it.id}')" class="bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap">${it.price}C 구매</button></div>`).join('');
         }
+        let shopBusy = false;
         window.buyShopItem = async (id) => {
-            const std = students[loggedInIdx];
+            const me = students[loggedInIdx];
             const item = shopItems.find(x => x.id === id);
-            if (!std || !item) return;
-            if (std.cash < item.price) return showToast("현금이 부족합니다.");
-            const inv = [...(std.inventory || []), { instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item.name, icon: item.icon, source: 'shop', obtainedAt: Date.now() }];
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { cash: parseFloat((std.cash - item.price).toFixed(1)), inventory: inv });
-            showToast(`${item.name} 구매 완료!`);
+            if (!me || !item || shopBusy) return;
+            shopBusy = true;
+            try {
+                await runTransaction(db, async (tx) => {
+                    const ref = studentRef(me.id);
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) throw new Error('NOSTD');
+                    const std = snap.data();
+                    if ((std.cash || 0) < item.price) throw new Error('POOR');
+                    const inv = [...(std.inventory || []), { instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item.name, icon: item.icon, source: 'shop', obtainedAt: Date.now() }];
+                    tx.update(ref, { cash: parseFloat(((std.cash || 0) - item.price).toFixed(1)), inventory: inv });
+                });
+                showToast(`${item.name} 구매 완료!`);
+            } catch (e) { showToast(txErrMsg(e, { POOR: '현금이 부족합니다.', NOSTD: '학생 정보를 찾을 수 없어요.' })); }
+            finally { shopBusy = false; }
         };
 
         // --- 좌석(부동산) 구매 (동시 구매 방지를 위해 트랜잭션 사용) ---
@@ -2212,23 +2312,48 @@
             const tierClass = { elite: 'tier-elite', rare: 'tier-rare', normal: 'tier-normal' };
             cont.innerHTML = inv.map(it => `<div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl"><span class="text-xs font-bold ${tierClass[it.tier]||''}">${it.icon} ${it.name}</span>${it.pendingOrderId ? '<span class="text-[10px] text-amber-400 font-bold">승인 대기중</span>' : `<div class="flex gap-1"><button onclick="requestRedeem('${it.instanceId}')" class="bg-purple-600 px-3 py-1 rounded-lg text-[10px] font-bold">사용 신청</button><button onclick="discardCoupon('${it.instanceId}')" class="bg-slate-800 text-slate-400 px-2 py-1 rounded-lg text-[10px] font-bold hover:bg-rose-900 hover:text-rose-400">버리기</button></div>`}</div>`).join('');
         }
+        let couponBusy = false;
         window.requestRedeem = async (instanceId) => {
-            const std = students[loggedInIdx];
-            if (!std) return;
-            const inv = [...(std.inventory || [])];
-            const idx = inv.findIndex(x => x.instanceId === instanceId);
-            if (idx === -1) return;
-            const orderRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { studentId: std.id, studentName: std.name, type: 'redeem', instanceId, couponName: inv[idx].name, timestamp: Date.now() });
-            inv[idx] = { ...inv[idx], pendingOrderId: orderRef.id };
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { inventory: inv });
-            showToast("사용 신청 완료! 관리자 승인을 기다려주세요.");
+            const me = students[loggedInIdx];
+            if (!me || couponBusy) return;
+            couponBusy = true;
+            try {
+                const orderRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'));
+                // 주문 생성 + 쿠폰 '승인 대기' 표시를 한 번에 → 둘 중 하나만 저장돼 쿠폰이 꼬이는 일 방지
+                await runTransaction(db, async (tx) => {
+                    const ref = studentRef(me.id);
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) throw new Error('NOSTD');
+                    const inv = [...(snap.data().inventory || [])];
+                    const idx = inv.findIndex(x => x.instanceId === instanceId);
+                    if (idx === -1) throw new Error('NOITEM');
+                    if (inv[idx].pendingOrderId) throw new Error('PENDING');
+                    tx.set(orderRef, { studentId: me.id, studentName: me.name, type: 'redeem', instanceId, couponName: inv[idx].name, timestamp: Date.now() });
+                    inv[idx] = { ...inv[idx], pendingOrderId: orderRef.id };
+                    tx.update(ref, { inventory: inv });
+                });
+                showToast("사용 신청 완료! 관리자 승인을 기다려주세요.");
+            } catch (e) { showToast(txErrMsg(e, { NOITEM: '이미 없는 쿠폰이에요.', PENDING: '이미 사용 신청한 쿠폰이에요.', NOSTD: '학생 정보를 찾을 수 없어요.' })); }
+            finally { couponBusy = false; }
         };
         window.discardCoupon = async (instanceId) => {
-            const std = students[loggedInIdx];
-            if (!std) return;
-            const inv = (std.inventory || []).filter(x => x.instanceId !== instanceId);
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { inventory: inv });
-            showToast("쿠폰을 버렸습니다.");
+            const me = students[loggedInIdx];
+            if (!me || couponBusy) return;
+            couponBusy = true;
+            try {
+                await runTransaction(db, async (tx) => {
+                    const ref = studentRef(me.id);
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) throw new Error('NOSTD');
+                    const inv = snap.data().inventory || [];
+                    const target = inv.find(x => x.instanceId === instanceId);
+                    if (!target) throw new Error('NOITEM');
+                    if (target.pendingOrderId) throw new Error('PENDING');
+                    tx.update(ref, { inventory: inv.filter(x => x.instanceId !== instanceId) });
+                });
+                showToast("쿠폰을 버렸습니다.");
+            } catch (e) { showToast(txErrMsg(e, { NOITEM: '이미 없는 쿠폰이에요.', PENDING: '사용 신청 중인 쿠폰은 버릴 수 없어요.', NOSTD: '학생 정보를 찾을 수 없어요.' })); }
+            finally { couponBusy = false; }
         };
 
         function renderGachaPityDisplay() {
@@ -2242,16 +2367,26 @@
             if (ticketEl) ticketEl.innerText = std.ticketCount || 0;
             if (stackEl) stackEl.innerText = std.normalStack || 0;
         }
+        let stackBusy = false;
         window.exchangeStackForTicket = async () => {
-            const std = students[loggedInIdx];
-            if (!std) return;
-            const stack = std.normalStack || 0;
-            const sets = Math.floor(stack / 30);
-            if (sets <= 0) return showToast("스택이 30개 미만입니다.");
-            const newStack = stack - sets * 30;
-            const newTickets = (std.ticketCount || 0) + sets;
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { normalStack: newStack, ticketCount: newTickets });
-            showToast(`🎫 뽑기권 ${sets}장으로 교환 완료!`);
+            const me = students[loggedInIdx];
+            if (!me || stackBusy) return;
+            stackBusy = true;
+            try {
+                let sets = 0;
+                await runTransaction(db, async (tx) => {
+                    const ref = studentRef(me.id);
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) throw new Error('NOSTD');
+                    const std = snap.data();
+                    const stack = std.normalStack || 0;
+                    sets = Math.floor(stack / 30);
+                    if (sets <= 0) throw new Error('LOW');
+                    tx.update(ref, { normalStack: stack - sets * 30, ticketCount: (std.ticketCount || 0) + sets });
+                });
+                showToast(`🎫 뽑기권 ${sets}장으로 교환 완료!`);
+            } catch (e) { showToast(txErrMsg(e, { LOW: '스택이 30개 미만입니다.', NOSTD: '학생 정보를 찾을 수 없어요.' })); }
+            finally { stackBusy = false; }
         };
         function renderPortalFragments() {
             const cont = document.getElementById('portal-fragment-list');
@@ -2266,15 +2401,26 @@
             cont.innerHTML = entries.map(e => `<div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-xl"><span class="text-xs font-bold tier-rare">${e.icon} ${e.name} (${e.count}/10)</span>${e.count >= 10 ? `<button onclick="requestFragmentRedeem('${e.id}')" class="bg-fuchsia-600 px-3 py-1 rounded-lg text-[10px] font-bold">사용 신청</button>` : `<span class="text-[10px] text-slate-600">조각 부족</span>`}</div>`).join('');
         }
         window.requestFragmentRedeem = async (poolItemId) => {
-            const std = students[loggedInIdx];
-            if (!std) return;
-            const frags = { ...(std.fragments || {}) };
-            if ((frags[poolItemId] || 0) < 10) return showToast("조각이 부족합니다.");
-            const item = gachaPool.find(g => g.id === poolItemId);
-            frags[poolItemId] -= 10;
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), { fragments: frags });
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { studentId: std.id, studentName: std.name, type: 'redeem', redeemKind: 'fragment', poolItemId, couponName: item?.name || '조각 아이템', timestamp: Date.now() });
-            showToast("사용 신청 완료! 관리자 승인을 기다려주세요.");
+            const me = students[loggedInIdx];
+            if (!me || couponBusy) return;
+            couponBusy = true;
+            try {
+                const item = gachaPool.find(g => g.id === poolItemId);
+                const orderRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'));
+                // 조각 10개 차감 + 사용 신청 주문 생성을 한 번에 처리 (조각만 사라지고 주문이 안 생기는 일 방지)
+                await runTransaction(db, async (tx) => {
+                    const ref = studentRef(me.id);
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) throw new Error('NOSTD');
+                    const frags = { ...(snap.data().fragments || {}) };
+                    if ((frags[poolItemId] || 0) < 10) throw new Error('LOW');
+                    frags[poolItemId] -= 10;
+                    tx.update(ref, { fragments: frags });
+                    tx.set(orderRef, { studentId: me.id, studentName: me.name, type: 'redeem', redeemKind: 'fragment', poolItemId, couponName: item?.name || '조각 아이템', timestamp: Date.now() });
+                });
+                showToast("사용 신청 완료! 관리자 승인을 기다려주세요.");
+            } catch (e) { showToast(txErrMsg(e, { LOW: '조각이 부족합니다.', NOSTD: '학생 정보를 찾을 수 없어요.' })); }
+            finally { couponBusy = false; }
         };
 
         // --- 가챠 확률 엔진 (하드천장 70 / 소프트천장 40~69 / 10연 레어이상 보장) ---
@@ -2314,55 +2460,68 @@
             }
             return { results, endPity: pity };
         }
+        let gachaBusy = false;
         window.pullGacha = async (count) => {
-            const std = students[loggedInIdx];
-            if (!std) return;
+            const me = students[loggedInIdx];
+            if (!me || gachaBusy) return;          // 연타해도 한 번만 처리
             const hasRare = gachaPool.some(g => g.tier === 'rare');
             const hasElite = gachaPool.some(g => g.tier === 'elite');
             if (!hasRare || !hasElite) return showToast("가챠 풀(레어/정예)이 비어있습니다. 관리자에게 문의하세요.");
             const cost = marketState.gachaCost || { single: 5, ten: 45 };
-            const ticketsAvailable = std.ticketCount || 0;
-            const ticketsUsed = Math.min(count, ticketsAvailable);
-            const remaining = count - ticketsUsed;
-            const goldCost = remaining === 0 ? 0 : (ticketsUsed === 0 && count === 10 ? cost.ten : remaining * cost.single);
-            if (std.cash < goldCost) return showToast("골드가 부족합니다.");
+            gachaBusy = true;
+            let display = [], endPity = 0, ticketsUsed = 0, goldCost = 0;
+            try {
+                // '서버에 있는 현재 계좌' 기준으로 계산하고, 한 번에 저장 (잔액/인벤토리/조각/천장 중 일부만 저장되는 일 방지)
+                await runTransaction(db, async (tx) => {
+                    display = [];
+                    const ref = studentRef(me.id);
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) throw new Error('NOSTD');
+                    const std = snap.data();
+                    const ticketsAvailable = std.ticketCount || 0;
+                    ticketsUsed = Math.min(count, ticketsAvailable);
+                    const remaining = count - ticketsUsed;
+                    goldCost = remaining === 0 ? 0 : (ticketsUsed === 0 && count === 10 ? cost.ten : remaining * cost.single);
+                    if ((std.cash || 0) < goldCost) throw new Error('POOR');
 
-            const startPity = std.gachaPity || 0;
-            const { results, endPity } = runGachaRolls(count, startPity);
+                    const startPity = std.gachaPity || 0;
+                    const rolled = runGachaRolls(count, startPity);
+                    const results = rolled.results;
+                    endPity = rolled.endPity;
 
-            let newStack = std.normalStack || 0;
-            const newFragments = { ...(std.fragments || {}) };
-            const newInventory = [...(std.inventory || [])];
-            const display = [];
+                    let newStack = std.normalStack || 0;
+                    const newFragments = { ...(std.fragments || {}) };
+                    const newInventory = [...(std.inventory || [])];
 
-            results.forEach(tier => {
-                if (tier === 'normal') {
-                    newStack += 1;
-                    display.push({ tier, icon: '⭐', name: '스택 +1' });
-                } else if (tier === 'rare') {
-                    const item = pickFromPool('rare');
-                    if (item) {
-                        newFragments[item.id] = (newFragments[item.id] || 0) + 1;
-                        display.push({ tier, icon: item.icon, name: `${item.name} 조각 (${newFragments[item.id]}/10)` });
-                    }
-                } else {
-                    const item = pickFromPool('elite');
-                    if (item) {
-                        newInventory.push({ instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item.name, icon: item.icon, tier: 'elite', source: 'gacha', obtainedAt: Date.now() });
-                        display.push({ tier, icon: item.icon, name: item.name });
-                    }
-                }
-            });
+                    results.forEach(tier => {
+                        if (tier === 'normal') {
+                            newStack += 1;
+                            display.push({ tier, icon: '⭐', name: '스택 +1' });
+                        } else if (tier === 'rare') {
+                            const item = pickFromPool('rare');
+                            if (item) {
+                                newFragments[item.id] = (newFragments[item.id] || 0) + 1;
+                                display.push({ tier, icon: item.icon, name: `${item.name} 조각 (${newFragments[item.id]}/10)` });
+                            }
+                        } else {
+                            const item = pickFromPool('elite');
+                            if (item) {
+                                newInventory.push({ instanceId: `${Date.now()}_${Math.random().toString(36).slice(2,8)}`, name: item.name, icon: item.icon, tier: 'elite', source: 'gacha', obtainedAt: Date.now() });
+                                display.push({ tier, icon: item.icon, name: item.name });
+                            }
+                        }
+                    });
 
-            const newCash = parseFloat((std.cash - goldCost).toFixed(1));
-            const newTickets = ticketsAvailable - ticketsUsed;
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', std.id), {
-                cash: newCash, gachaPity: endPity, inventory: newInventory,
-                ticketCount: newTickets, normalStack: newStack, fragments: newFragments
-            });
-            playGachaAnimation(display, endPity);
-            if (ticketsUsed > 0 && goldCost > 0) showToast(`🎫 뽑기권 ${ticketsUsed}장 + ${goldCost}C 사용`);
-            else if (ticketsUsed > 0) showToast(`🎫 뽑기권 ${ticketsUsed}장 사용`);
+                    tx.update(ref, {
+                        cash: parseFloat(((std.cash || 0) - goldCost).toFixed(1)), gachaPity: endPity, inventory: newInventory,
+                        ticketCount: ticketsAvailable - ticketsUsed, normalStack: newStack, fragments: newFragments
+                    });
+                });
+                playGachaAnimation(display, endPity);
+                if (ticketsUsed > 0 && goldCost > 0) showToast(`🎫 뽑기권 ${ticketsUsed}장 + ${goldCost}C 사용`);
+                else if (ticketsUsed > 0) showToast(`🎫 뽑기권 ${ticketsUsed}장 사용`);
+            } catch (e) { showToast(txErrMsg(e, { POOR: '골드가 부족합니다.', NOSTD: '학생 정보를 찾을 수 없어요.' })); }
+            finally { gachaBusy = false; }
         };
 
         // --- 가챠 연출 ---
@@ -2446,6 +2605,18 @@
         function lottoResultReady() { return lottoState.status === 'drawn' && !lottoAnim; }
         function lottoMyEntry() { const me = currentStudent(); return me ? lottoRoundEntries().find(e => e.studentId === me.id) : null; }
 
+        let lottoEntriesUnsub = null, lottoEntriesRound;
+        function attachLottoEntries(round) {
+            if (lottoEntriesUnsub && lottoEntriesRound === round) return;
+            if (lottoEntriesUnsub) lottoEntriesUnsub();
+            lottoEntriesRound = round;
+            lottoEntriesAll = [];
+            lottoEntriesUnsub = onSnapshot(query(lottoEntriesCol, where('round', '==', round)), (s) => {
+                lottoEntriesAll = s.docs.map(d => ({ ...d.data(), id: d.id }));
+                renderLotto();
+            }, (err) => console.error('lotto entries error:', err));
+        }
+
         function initLottoSync() {
             onSnapshot(lottoStateRef, (s) => {
                 lottoState = s.exists() ? { round: 0, status: 'none', drawn: [], ...s.data() } : { round: 0, status: 'none', drawn: [] };
@@ -2455,12 +2626,9 @@
                     lottoSeenDrawKey = key;
                     if (lottoOpen) playLottoDraw(lottoState.drawn);          // 창을 열어 둔 모든 화면에서 같이 돌아감
                 }
+                attachLottoEntries(lottoState.round);   // 지난 회차 응모 기록은 더 이상 매번 읽지 않음
                 renderLotto();
             }, (err) => console.error('lotto state error:', err));
-            onSnapshot(lottoEntriesCol, (s) => {
-                lottoEntriesAll = s.docs.map(d => ({ ...d.data(), id: d.id }));
-                renderLotto();
-            }, (err) => console.error('lotto entries error:', err));
         }
 
         // ---------- 화면 그리기 ----------
